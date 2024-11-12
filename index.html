@@ -69,7 +69,7 @@
         
         // Colores predefinidos por tipo de cultivo
         const colorMap = {
-            'bosque de galería': '#006400',
+            'bosque de galería': '#013220',  // Verde oscuro específico para "Bosque de galería"
             'arroz': '#FFD700',
             'río': '#0000FF',
             'lago': '#1E90FF',
@@ -87,7 +87,7 @@
             'palma aceite': '#CD853F'
         };
 
-        // Asignar un color automáticamente en caso de cultivos sin color definido
+        // Colores adicionales en caso de que no haya color definido
         const extraColors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A5', '#33FFF5', '#F5FF33', '#8B33FF', '#FF8C33', '#33FF91', '#FF33D6'];
         let colorIndex = 0;
 
@@ -129,8 +129,10 @@
         L.control.layers(baseMaps, null, { collapsed: false }).addTo(map);
 
         var bounds = L.latLngBounds();
-        var usosLayer;
+        var usosLayer, fincasLayer, rutasLayer;
+        var layerControl = L.control.layers(null, null, { collapsed: false }).addTo(map);
 
+        // Cargar capa de usos
         fetch("usos.geojson")
             .then(response => response.json())
             .then(data => {
@@ -143,10 +145,34 @@
                 });
                 
                 usosLayer.addTo(map);
+                layerControl.addOverlay(usosLayer, "Usos");
                 bounds.extend(usosLayer.getBounds());
-                map.fitBounds(bounds);
             })
             .catch(error => console.error("Error cargando usos.geojson:", error));
+
+        // Cargar capa de fincas
+        fetch("fincasssss.geojson")
+            .then(response => response.json())
+            .then(data => {
+                fincasLayer = L.geoJSON(data, { style: { color: '#000', weight: 2, fillOpacity: 0 } });
+                fincasLayer.addTo(map);
+                layerControl.addOverlay(fincasLayer, "Fincas");
+                bounds.extend(fincasLayer.getBounds());
+            })
+            .catch(error => console.error("Error cargando fincasssss.geojson:", error));
+
+        // Cargar capa de rutas
+        fetch("Rutas.geojson")
+            .then(response => response.json())
+            .then(data => {
+                rutasLayer = L.geoJSON(data, { style: { color: '#FFA500', weight: 2 } });
+                rutasLayer.addTo(map);
+                layerControl.addOverlay(rutasLayer, "Rutas");
+                bounds.extend(rutasLayer.getBounds());
+            })
+            .catch(error => console.error("Error cargando Rutas.geojson:", error));
+
+        setTimeout(() => map.fitBounds(bounds), 500);
 
         // Aquí puedes incluir el código para filtrar las fincas y el resto de la lógica.
     </script>
