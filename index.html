@@ -20,7 +20,7 @@
             display: block;
             margin: 0 auto 10px;
         }
-        .filter, .summary, .chart-container, .color-selection {
+        .filter, .summary, .chart-container {
             background: white;
             padding: 10px;
             color: #333;
@@ -50,12 +50,6 @@
                 <option value="">Seleccione un código de finca</option>
             </select>
         </div>
-        
-        <div class="color-selection">
-            <strong>Seleccione el color de los cultivos:</strong><br>
-            <div id="colorSelectors"></div>
-            <button onclick="actualizarColores()">Actualizar Colores</button>
-        </div>
 
         <div id="summary" class="summary"></div>
         <div class="chart-container">
@@ -73,14 +67,14 @@
         var map = L.map('map').setView([0, 0], 2);
         var fincasData = [];
         
-        // Colores iniciales por tipo de cultivo
+        // Colores predefinidos por tipo de cultivo
         const colorMap = {
             'bosque de galería': '#006400',
             'arroz': '#FFD700',
             'río': '#0000FF',
-            'lago': '#0000FF',
-            'estero': '#0000FF',
-            'humedales': '#0000FF',
+            'lago': '#1E90FF',
+            'estero': '#00CED1',
+            'humedales': '#4682B4',
             'pasto enmalezado': '#ADFF2F',
             'pasto limpio': '#D2B48C',
             'pasto arbolado': '#FF6347',
@@ -93,11 +87,10 @@
             'palma aceite': '#CD853F'
         };
 
-        // Colores adicionales en caso de que no haya color definido
+        // Asignar un color automáticamente en caso de cultivos sin color definido
         const extraColors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A5', '#33FFF5', '#F5FF33', '#8B33FF', '#FF8C33', '#33FF91', '#FF33D6'];
         let colorIndex = 0;
 
-        // Asignar color automáticamente si no está definido
         function obtenerColor(cultivo) {
             if (!colorMap[cultivo]) {
                 colorMap[cultivo] = extraColors[colorIndex % extraColors.length];
@@ -106,47 +99,15 @@
             return colorMap[cultivo];
         }
 
-        // Agregar selectores de color para cada tipo de cultivo
-        function crearSelectoresDeColor() {
-            const colorSelectorsDiv = document.getElementById("colorSelectors");
-            colorSelectorsDiv.innerHTML = ""; // Limpiar los selectores previos
-
-            for (const cultivo in colorMap) {
-                const colorInput = document.createElement("input");
-                colorInput.type = "color";
-                colorInput.value = colorMap[cultivo];
-                colorInput.id = `color-${cultivo}`;
-                colorInput.onchange = () => colorMap[cultivo] = colorInput.value; // Actualizar el color en colorMap
-
-                const label = document.createElement("label");
-                label.htmlFor = `color-${cultivo}`;
-                label.textContent = cultivo;
-
-                const colorContainer = document.createElement("div");
-                colorContainer.appendChild(label);
-                colorContainer.appendChild(colorInput);
-                colorSelectorsDiv.appendChild(colorContainer);
-            }
-        }
-
-        // Actualizar los colores en el mapa
-        function actualizarColores() {
-            if (usosLayer) {
-                usosLayer.setStyle(estiloUsos);
-            }
-        }
-
         function estiloUsos(feature) {
             const cultivo = feature.properties.cultivo ? feature.properties.cultivo.trim().toLowerCase() : "";
-            const color = obtenerColor(cultivo); // Usar el color asignado o el extra
+            const color = obtenerColor(cultivo); // Asignar el color predefinido o uno de los extra
             return {
                 color: color,
                 fillOpacity: 0.5,
                 weight: 1
             };
         }
-
-        crearSelectoresDeColor(); // Crear los selectores de color al cargar la página
 
         // Cargar el mapa y las capas
         var osmBase = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
