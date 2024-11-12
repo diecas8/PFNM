@@ -134,6 +134,7 @@
             };
         }
 
+        // Cargar capa de usos y mostrar en el mapa
         fetch("usos.geojson")
             .then(response => response.json())
             .then(data => {
@@ -159,6 +160,30 @@
                 actualizarOpcionesSelect();
             })
             .catch(error => console.error("Error cargando usos.geojson:", error));
+
+        // Cargar capa de fincas y mostrar en el mapa
+        fetch("fincasssss.geojson")
+            .then(response => response.json())
+            .then(data => {
+                fincasLayer = L.geoJSON(data, { style: { color: '#000', weight: 2, fillOpacity: 0 } });
+                fincasLayer.addTo(map);
+                layerControl.addOverlay(fincasLayer, "Fincas");
+                bounds.extend(fincasLayer.getBounds());
+            })
+            .catch(error => console.error("Error cargando fincasssss.geojson:", error));
+
+        // Cargar capa de rutas y mostrar en el mapa
+        fetch("Rutas.geojson")
+            .then(response => response.json())
+            .then(data => {
+                rutasLayer = L.geoJSON(data, { style: { color: '#FFA500', weight: 2 } });
+                rutasLayer.addTo(map);
+                layerControl.addOverlay(rutasLayer, "Rutas");
+                bounds.extend(rutasLayer.getBounds());
+            })
+            .catch(error => console.error("Error cargando Rutas.geojson:", error));
+
+        setTimeout(() => map.fitBounds(bounds), 500);
 
         function actualizarOpcionesSelect(filtro = "") {
             var select = document.getElementById("codigoFinca");
