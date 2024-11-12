@@ -45,6 +45,7 @@
         <img src="CBS.png" class="logo" alt="Logo">
         <div class="filter">
             <strong>Filtrar por Código de Finca</strong><br>
+            <input type="text" id="codigoFincaInput" placeholder="Escriba el código o nombre de la finca" oninput="filtrarFincas()" />
             <select id="codigoFinca" onchange="filtrarPorFinca()">
                 <option value="">Seleccione un código de finca</option>
             </select>
@@ -63,6 +64,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         var map = L.map('map').setView([0, 0], 2);
+        var fincasData = [];
 
         var osmBase = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 18,
@@ -75,47 +77,20 @@
             attribution: 'Imágenes © Google'
         });
 
-        var topoBase = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-            maxZoom: 17,
-            attribution: 'Map data © OpenTopoMap contributors'
-        });
-
-        var reliefBase = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_relief/{z}/{x}/{y}{r}.png', {
-            maxZoom: 20,
-            attribution: 'Map data © Stadia Maps, OpenMapTiles, OpenStreetMap contributors'
-        });
-
         var baseMaps = {
             "OpenStreetMap": osmBase,
-            "Satélite": satelliteBase,
-            "Topográfico": topoBase,
-            "Relieve": reliefBase
+            "Satélite": satelliteBase
         };
 
         L.control.layers(baseMaps, null, { collapsed: false }).addTo(map);
 
         var bounds = L.latLngBounds();
-        var usosLayer, fincasLayer, rutasLayer;
-        var layerControl = L.control.layers(null, null, { collapsed: false }).addTo(map);
-        var chart;
-
+        var usosLayer, chart;
+        
         const colorMap = {
-            'bosque de galería': '#006400',
-            'arroz': '#FFD700',
-            'río': '#0000FF',
-            'lago': '#0000FF',
-            'estero': '#0000FF',
-            'humedales': '#0000FF',
-            'pasto enmalezado': '#ADFF2F',
-            'pasto limpio': '#D2B48C',
-            'pasto arbolado': '#FF6347',
-            'cacao': '#8B4513',
-            'algarrobo': '#A0522D',
-            'papaya': '#FFA500',
-            'maíz': '#FFD700',
-            'café': '#8B0000',
-            'otros': '#FF0000',
-            'palma aceite': '#CD853F'
+            'bosque de galería': '#006400', 'arroz': '#FFD700', 'río': '#0000FF', 
+            'lago': '#0000FF', 'pasto enmalezado': '#ADFF2F', 'cacao': '#8B4513', 
+            'café': '#8B0000', 'otros': '#FF0000', 'palma aceite': '#CD853F'
         };
 
         function estiloUsos(feature) {
@@ -131,7 +106,7 @@
         fetch("usos.geojson")
             .then(response => response.json())
             .then(data => {
-                var uniqueCodes = new Set();
+                var uniqueCodes = new Map();
 
                 usosLayer = L.geoJSON(data, {
                     style: estiloUsos,
@@ -139,37 +114,38 @@
                         const areaFormatted = parseFloat(feature.properties.has).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                         layer.bindPopup(`Cultivo: ${feature.properties.cultivo}<br>Área: ${areaFormatted} ha`);
                         
-                        if (feature.properties.cod_finca) {
-                            uniqueCodes.add(feature.properties.cod_finca);
+                        if (feature.properties.cod_finca && feature.properties.nom_finca_) {
+                            uniqueCodes.set(feature.properties.cod_finca, feature.properties.nom_finca_);
                         }
                     }
                 });
                 
                 usosLayer.addTo(map);
-                layerControl.addOverlay(usosLayer, "Usos");
                 bounds.extend(usosLayer.getBounds());
 
-                var select = document.getElementById("codigoFinca");
-                uniqueCodes.forEach(codigo => {
-                    var option = document.createElement("option");
-                    option.value = codigo;
-                    option.text = codigo;
-                    select.add(option);
-                });
+                fincasData = Array.from(uniqueCodes).sort(([codeA], [codeB]) => codeA.localeCompare(codeB));
+                actualizarOpcionesSelect();
             })
             .catch(error => console.error("Error cargando usos.geojson:", error));
 
-        fetch("Rutas.geojson")
-            .then(response => response.json())
-            .then(data => {
-                rutasLayer = L.geoJSON(data, { style: { color: '#FFA500', weight: 2 } });
-                rutasLayer.addTo(map);
-                layerControl.addOverlay(rutasLayer, "Rutas");
-                bounds.extend(rutasLayer.getBounds());
-            })
-            .catch(error => console.error("Error cargando Rutas.geojson:", error));
+        function actualizarOpcionesSelect(filtro = "") {
+            var select = document.getElementById("codigoFinca");
+            select.innerHTML = '<option value="">Seleccione un código de finca</option>';
+            
+            fincasData.forEach(([codigo, nombre]) => {
+                if (codigo.toLowerCase().includes(filtro) || nombre.toLowerCase().includes(filtro)) {
+                    var option = document.createElement("option");
+                    option.value = codigo;
+                    option.text = `${codigo} - ${nombre}`;
+                    select.add(option);
+                }
+            });
+        }
 
-        setTimeout(() => map.fitBounds(bounds), 500);
+        function filtrarFincas() {
+            var filtro = document.getElementById("codigoFincaInput").value.trim().toLowerCase();
+            actualizarOpcionesSelect(filtro);
+        }
 
         function filtrarPorFinca() {
             var codigoFinca = document.getElementById("codigoFinca").value.trim().toLowerCase();
@@ -247,3 +223,4 @@
     </script>
 </body>
 </html>
+
