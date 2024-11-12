@@ -45,12 +45,9 @@
         <img src="CBS.png" class="logo" alt="Logo">
         <div class="filter">
             <strong>Filtrar por Código de Finca</strong><br>
-            <input type="text" id="codigoFincaInput" placeholder="Escriba el código o nombre de la finca" oninput="filtrarFincas()" />
-            <select id="codigoFinca" onchange="filtrarPorFinca()">
-                <option value="">Seleccione un código de finca</option>
-            </select>
+            <input type="text" id="codigoFinca" placeholder="Ingrese código de finca" onkeypress="if(event.key === 'Enter') filtrarPorFinca()" />
+            <button onclick="filtrarPorFinca()">Filtrar</button>
         </div>
-
         <div id="summary" class="summary"></div>
         <div class="chart-container">
             <canvas id="chart"></canvas>
@@ -65,9 +62,31 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         var map = L.map('map').setView([0, 0], 2);
-        var fincasData = [];
-        
-        // Colores predefinidos por tipo de cultivo
+
+        // Capas base del mapa
+        var osmBase = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+
+        var satelliteBase = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+            maxZoom: 20,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            attribution: 'Imágenes © Google'
+        });
+
+        var baseMaps = {
+            "OpenStreetMap": osmBase,
+            "Satélite": satelliteBase
+        };
+
+        // Control de capas
+        L.control.layers(baseMaps, null, { collapsed: false }).addTo(map);
+        var bounds = L.latLngBounds();
+        var usosLayer, fincasLayer, rutasLayer;
+        var layerControl = L.control.layers(null, null, { collapsed: false }).addTo(map);
+
+        // Colores definidos para cada tipo de cultivo
         const colorMap = {
             'bosque de galería': '#013220',  // Verde oscuro específico para "Bosque de galería"
             'arroz': '#FFD700',
@@ -87,50 +106,15 @@
             'palma aceite': '#CD853F'
         };
 
-        // Colores adicionales en caso de que no haya color definido
-        const extraColors = ['#FF5733', '#33FF57', '#3357FF', '#FF33A5', '#33FFF5', '#F5FF33', '#8B33FF', '#FF8C33', '#33FF91', '#FF33D6'];
-        let colorIndex = 0;
-
-        function obtenerColor(cultivo) {
-            if (!colorMap[cultivo]) {
-                colorMap[cultivo] = extraColors[colorIndex % extraColors.length];
-                colorIndex++;
-            }
-            return colorMap[cultivo];
-        }
-
         function estiloUsos(feature) {
             const cultivo = feature.properties.cultivo ? feature.properties.cultivo.trim().toLowerCase() : "";
-            const color = obtenerColor(cultivo); // Asignar el color predefinido o uno de los extra
+            const color = colorMap[cultivo] || '#808080'; // Color gris solo si el cultivo no está en colorMap
             return {
                 color: color,
                 fillOpacity: 0.5,
                 weight: 1
             };
         }
-
-        // Cargar el mapa y las capas
-        var osmBase = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 18,
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
-
-        var satelliteBase = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-            maxZoom: 20,
-            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-            attribution: 'Imágenes © Google'
-        });
-
-        var baseMaps = {
-            "OpenStreetMap": osmBase,
-            "Satélite": satelliteBase
-        };
-
-        L.control.layers(baseMaps, null, { collapsed: false }).addTo(map);
-
-        var bounds = L.latLngBounds();
-        var usosLayer, fincasLayer, rutasLayer;
-        var layerControl = L.control.layers(null, null, { collapsed: false }).addTo(map);
 
         // Cargar capa de usos
         fetch("usos.geojson")
@@ -174,7 +158,80 @@
 
         setTimeout(() => map.fitBounds(bounds), 500);
 
-        // Aquí puedes incluir el código para filtrar las fincas y el resto de la lógica.
+        // Filtrar por código de finca y mostrar el resumen de cultivos
+        function filtrarPorFinca() {
+            var codigoFinca = document.getElementById("codigoFinca").value.trim().toLowerCase();
+            var resumen = {};
+            var totalArea = 0;
+            var propietario = "";
+            var nombreFinca = ""; 
+            var fincaBounds = L.latLngBounds();
+
+            usosLayer.eachLayer(function(layer) {
+                if (layer.feature.properties.cod_finca && layer.feature.properties.cod_finca.trim().toLowerCase() === codigoFinca) {
+                    map.addLayer(layer);
+                    fincaBounds.extend(layer.getBounds());
+                    var cultivo = layer.feature.properties.cultivo;
+                    var area = parseFloat(layer.feature.properties.has);
+                    totalArea += area;
+                    resumen[cultivo] = (resumen[cultivo] || 0) + area;
+                    propietario = layer.feature.properties.propietari || propietario;
+                    nombreFinca = layer.feature.properties.nom_finca_ || nombreFinca;  
+                } else {
+                    map.removeLayer(layer);
+                }
+            });
+
+            if (fincaBounds.isValid()) {
+                map.fitBounds(fincaBounds);
+            } else {
+                alert("Código de finca no encontrado.");
+            }
+
+            var summaryDiv = document.getElementById("summary");
+            summaryDiv.innerHTML = `<strong>Resumen de Cultivos para Finca ${codigoFinca.toUpperCase()}</strong><br>`;
+            summaryDiv.innerHTML += `Propietario: ${propietario}<br>`;
+            summaryDiv.innerHTML += `Nombre de la Finca: ${nombreFinca}<br><br>`;
+            var labels = [], data = [], backgroundColors = [];
+
+            for (var cultivo in resumen) {
+                const area = resumen[cultivo].toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                summaryDiv.innerHTML += `${cultivo}: ${area} ha<br>`;
+                labels.push(cultivo);
+                data.push(resumen[cultivo]);
+                backgroundColors.push(colorMap[cultivo.toLowerCase()] || '#808080');
+            }
+
+            summaryDiv.innerHTML += `<br><strong>Total de la finca: ${totalArea.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ha</strong>`;
+
+            if (chart) chart.destroy();
+            const ctx = document.getElementById('chart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: backgroundColors
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const porcentaje = ((context.raw / total) * 100).toFixed(2);
+                                    return `${context.label}: ${context.raw.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ha (${porcentaje}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
     </script>
 </body>
 </html>
