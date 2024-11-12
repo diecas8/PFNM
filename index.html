@@ -45,8 +45,10 @@
         <img src="CBS.png" class="logo" alt="Logo">
         <div class="filter">
             <strong>Filtrar por Código de Finca</strong><br>
-            <input type="text" id="codigoFinca" placeholder="Ingrese código de finca" onkeypress="if(event.key === 'Enter') filtrarPorFinca()" />
-            <button onclick="filtrarPorFinca()">Filtrar</button>
+            <input type="text" id="codigoFincaInput" placeholder="Escriba el código o nombre de la finca" oninput="filtrarFincas()" />
+            <select id="codigoFinca" onchange="filtrarPorFinca()">
+                <option value="">Seleccione un código de finca</option>
+            </select>
         </div>
         <div id="summary" class="summary"></div>
         <div class="chart-container">
@@ -61,9 +63,11 @@
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
+        // Crear el mapa con un mapa base predeterminado
         var map = L.map('map').setView([0, 0], 2);
+        var fincasData = [];
 
-        // Capas base del mapa
+        // Agregar diferentes opciones de mapas base
         var osmBase = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 18,
             attribution: '© OpenStreetMap contributors'
@@ -75,40 +79,54 @@
             attribution: 'Imágenes © Google'
         });
 
+        var topoBase = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+            maxZoom: 17,
+            attribution: 'Map data © OpenTopoMap contributors'
+        });
+
+        var reliefBase = L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth_relief/{z}/{x}/{y}{r}.png', {
+            maxZoom: 20,
+            attribution: 'Map data © Stadia Maps, OpenMapTiles, OpenStreetMap contributors'
+        });
+
         var baseMaps = {
             "OpenStreetMap": osmBase,
-            "Satélite": satelliteBase
+            "Satélite": satelliteBase,
+            "Topográfico": topoBase,
+            "Relieve": reliefBase
         };
 
-        // Control de capas
+        // Añadir el control de capas de mapas base
         L.control.layers(baseMaps, null, { collapsed: false }).addTo(map);
+
         var bounds = L.latLngBounds();
         var usosLayer, fincasLayer, rutasLayer;
         var layerControl = L.control.layers(null, null, { collapsed: false }).addTo(map);
+        var chart;
 
-        // Colores definidos para cada tipo de cultivo
+        // Mapear colores para cada tipo de cultivo específico
         const colorMap = {
-            'bosque de galería': '#013220',  // Verde oscuro específico para "Bosque de galería"
-            'arroz': '#FFD700',
-            'río': '#0000FF',
-            'lago': '#1E90FF',
-            'estero': '#00CED1',
-            'humedales': '#4682B4',
-            'pasto enmalezado': '#ADFF2F',
-            'pasto limpio': '#D2B48C',
-            'pasto arbolado': '#FF6347',
-            'cacao': '#8B4513',
-            'algarrobo': '#A0522D',
-            'papaya': '#FFA500',
-            'maíz': '#FFD700',
-            'café': '#8B0000',
-            'otros': '#FF0000',
-            'palma aceite': '#CD853F'
+            'bosque de galería': '#006400',  // Verde oscuro
+            'arroz': '#FFD700',              // Amarillo
+            'río': '#0000FF',                // Azul
+            'lago': '#0000FF',               // Azul
+            'estero': '#0000FF',             // Azul
+            'humedales': '#0000FF',          // Azul
+            'pasto enmalezado': '#ADFF2F',   // Verde claro
+            'pasto limpio': '#D2B48C',       // Café claro
+            'pasto arbolado': '#FF6347',     // Rojo claro
+            'cacao': '#8B4513',              // Marrón oscuro
+            'algarrobo': '#A0522D',          // Sienna oscuro
+            'papaya': '#FFA500',             // Naranja
+            'maíz': '#FFD700',               // Amarillo dorado
+            'café': '#8B0000',               // Rojo oscuro
+            'otros': '#FF0000',              // Rojo
+            'palma aceite': '#CD853F'        // Café claro
         };
 
         function estiloUsos(feature) {
             const cultivo = feature.properties.cultivo ? feature.properties.cultivo.trim().toLowerCase() : "";
-            const color = colorMap[cultivo] || '#808080'; // Color gris solo si el cultivo no está en colorMap
+            const color = colorMap[cultivo] || 'gray';
             return {
                 color: color,
                 fillOpacity: 0.5,
@@ -116,25 +134,34 @@
             };
         }
 
-        // Cargar capa de usos
+        // Cargar capa de usos y mostrar en el mapa
         fetch("usos.geojson")
             .then(response => response.json())
             .then(data => {
+                var uniqueCodes = new Map();
+
                 usosLayer = L.geoJSON(data, {
                     style: estiloUsos,
                     onEachFeature: function(feature, layer) {
                         const areaFormatted = parseFloat(feature.properties.has).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                         layer.bindPopup(`Cultivo: ${feature.properties.cultivo}<br>Área: ${areaFormatted} ha`);
+                        
+                        if (feature.properties.cod_finca && feature.properties.nom_finca_) {
+                            uniqueCodes.set(feature.properties.cod_finca, feature.properties.nom_finca_);
+                        }
                     }
                 });
                 
                 usosLayer.addTo(map);
                 layerControl.addOverlay(usosLayer, "Usos");
                 bounds.extend(usosLayer.getBounds());
+
+                fincasData = Array.from(uniqueCodes).sort(([codeA], [codeB]) => codeA.localeCompare(codeB));
+                actualizarOpcionesSelect();
             })
             .catch(error => console.error("Error cargando usos.geojson:", error));
 
-        // Cargar capa de fincas
+        // Cargar capa de fincas y mostrar en el mapa
         fetch("fincasssss.geojson")
             .then(response => response.json())
             .then(data => {
@@ -145,7 +172,7 @@
             })
             .catch(error => console.error("Error cargando fincasssss.geojson:", error));
 
-        // Cargar capa de rutas
+        // Cargar capa de rutas y mostrar en el mapa
         fetch("Rutas.geojson")
             .then(response => response.json())
             .then(data => {
@@ -158,13 +185,31 @@
 
         setTimeout(() => map.fitBounds(bounds), 500);
 
-        // Filtrar por código de finca y mostrar el resumen de cultivos
+        function actualizarOpcionesSelect(filtro = "") {
+            var select = document.getElementById("codigoFinca");
+            select.innerHTML = '<option value="">Seleccione un código de finca</option>';
+            
+            fincasData.forEach(([codigo, nombre]) => {
+                if (codigo.toLowerCase().includes(filtro) || nombre.toLowerCase().includes(filtro)) {
+                    var option = document.createElement("option");
+                    option.value = codigo;
+                    option.text = `${codigo} - ${nombre}`;
+                    select.add(option);
+                }
+            });
+        }
+
+        function filtrarFincas() {
+            var filtro = document.getElementById("codigoFincaInput").value.trim().toLowerCase();
+            actualizarOpcionesSelect(filtro);
+        }
+
         function filtrarPorFinca() {
             var codigoFinca = document.getElementById("codigoFinca").value.trim().toLowerCase();
             var resumen = {};
             var totalArea = 0;
             var propietario = "";
-            var nombreFinca = ""; 
+            var nombreFinca = "";
             var fincaBounds = L.latLngBounds();
 
             usosLayer.eachLayer(function(layer) {
@@ -176,7 +221,7 @@
                     totalArea += area;
                     resumen[cultivo] = (resumen[cultivo] || 0) + area;
                     propietario = layer.feature.properties.propietari || propietario;
-                    nombreFinca = layer.feature.properties.nom_finca_ || nombreFinca;  
+                    nombreFinca = layer.feature.properties.nom_finca_ || nombreFinca;
                 } else {
                     map.removeLayer(layer);
                 }
@@ -199,7 +244,7 @@
                 summaryDiv.innerHTML += `${cultivo}: ${area} ha<br>`;
                 labels.push(cultivo);
                 data.push(resumen[cultivo]);
-                backgroundColors.push(colorMap[cultivo.toLowerCase()] || '#808080');
+                backgroundColors.push(colorMap[cultivo.toLowerCase()] || 'gray');
             }
 
             summaryDiv.innerHTML += `<br><strong>Total de la finca: ${totalArea.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ha</strong>`;
@@ -235,3 +280,4 @@
     </script>
 </body>
 </html>
+
