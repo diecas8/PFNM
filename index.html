@@ -87,33 +87,28 @@
         var layerControl = L.control.layers(null, null, { collapsed: false }).addTo(map);
         var chart;
 
-        // Colores definidos para cada tipo de cultivo
+        // Colores específicos para cada tipo de cultivo
         const colorMap = {
             'bosque de galería': '#006400',  // Verde oscuro
             'arroz': '#FFD700',              // Amarillo
-            'río': '#0000FF',                // Azul
-            'lago': '#0000FF',               // Azul
-            'estero': '#0000FF',             // Azul
-            'humedales': '#0000FF',          // Azul
-            'pasto enmalezado': '#ADFF2F',   // Verde claro
-            'pasto limpio': '#D2B48C',       // Café claro
-            'pasto arbolado': '#FF6347',     // Rojo claro
-            'cacao': '#8B4513',              // Marrón oscuro
-            'algarrobo': '#A0522D',          // Sienna oscuro
-            'papaya': '#FFA500',             // Naranja
+            'río': '#87CEEB',                // Azul claro
+            'lago': '#4682B4',               // Azul medio
+            'estero': '#4682B4',             // Azul medio
+            'humedales': '#B0E0E6',          // Azul claro
+            'pasto enmalezado': '#9ACD32',   // Verde limón
+            'pasto limpio': '#BDB76B',       // Verde oliva
+            'pasto arbolado': '#228B22',     // Verde bosque
+            'cacao': '#8B4513',              // Marrón
+            'algarrobo': '#8B4513',          // Marrón
+            'papaya': '#FFA07A',             // Salmón claro
             'maíz': '#FFD700',               // Amarillo dorado
             'café': '#8B0000',               // Rojo oscuro
-            'otros': '#FF0000',              // Rojo
-            'palma aceite': '#CD853F'        // Café claro
+            'otros': '#DAA520',              // Oro viejo
+            'palma aceite': '#556B2F'        // Verde oliva oscuro
         };
 
         function estiloUsos(feature) {
-            // Convertir el nombre del cultivo a minúsculas y eliminar espacios
             const cultivo = feature.properties.cultivo ? feature.properties.cultivo.trim().toLowerCase() : "";
-            
-            // Depuración: Imprimir el nombre del cultivo para verificar coincidencias
-            console.log(`Cultivo encontrado: '${cultivo}'`);
-
             const color = colorMap[cultivo] || '#808080'; // Color gris solo si el cultivo no está en colorMap
             return {
                 color: color,
