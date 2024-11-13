@@ -108,7 +108,12 @@
         };
 
         function estiloUsos(feature) {
+            // Convertir el nombre del cultivo a minúsculas y eliminar espacios
             const cultivo = feature.properties.cultivo ? feature.properties.cultivo.trim().toLowerCase() : "";
+            
+            // Depuración: Imprimir el nombre del cultivo para verificar coincidencias
+            console.log(`Cultivo encontrado: '${cultivo}'`);
+
             const color = colorMap[cultivo] || '#808080'; // Color gris solo si el cultivo no está en colorMap
             return {
                 color: color,
