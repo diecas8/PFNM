@@ -83,33 +83,33 @@
         // Control de capas
         L.control.layers(baseMaps, null, { collapsed: false }).addTo(map);
         var bounds = L.latLngBounds();
-        var usosLayer, fincasLayer, rutasLayer;
+        var usosLayer, usos2Layer, fincasLayer, rutasLayer;
         var layerControl = L.control.layers(null, null, { collapsed: false }).addTo(map);
         var chart;
 
         // Colores específicos para cada tipo de cultivo
         const colorMap = {
-            'bosque de galería': '#006400',  // Verde oscuro
-            'arroz': '#FFD700',              // Amarillo
-            'río': '#87CEEB',                // Azul claro
-            'lago': '#4682B4',               // Azul medio
-            'estero': '#4682B4',             // Azul medio
-            'humedales': '#B0E0E6',          // Azul claro
-            'pasto enmalezado': '#9ACD32',   // Verde limón
-            'pasto limpio': '#BDB76B',       // Verde oliva
-            'pasto arbolado': '#228B22',     // Verde bosque
-            'cacao': '#8B4513',              // Marrón
-            'algarrobo': '#8B4513',          // Marrón
-            'papaya': '#FFA07A',             // Salmón claro
-            'maíz': '#FFD700',               // Amarillo dorado
-            'café': '#8B0000',               // Rojo oscuro
-            'otros': '#DAA520',              // Oro viejo
-            'palma aceite': '#556B2F'        // Verde oliva oscuro
+            'bosque de galería': '#006400',
+            'arroz': '#FFD700',
+            'río': '#87CEEB',
+            'lago': '#4682B4',
+            'estero': '#4682B4',
+            'humedales': '#B0E0E6',
+            'pasto enmalezado': '#9ACD32',
+            'pasto limpio': '#BDB76B',
+            'pasto arbolado': '#228B22',
+            'cacao': '#8B4513',
+            'algarrobo': '#8B4513',
+            'papaya': '#FFA07A',
+            'maíz': '#FFD700',
+            'café': '#8B0000',
+            'otros': '#DAA520',
+            'palma aceite': '#556B2F'
         };
 
         function estiloUsos(feature) {
             const cultivo = feature.properties.cultivo ? feature.properties.cultivo.trim().toLowerCase() : "";
-            const color = colorMap[cultivo] || '#808080'; // Color gris solo si el cultivo no está en colorMap
+            const color = colorMap[cultivo] || '#808080';
             return {
                 color: color,
                 fillOpacity: 0.5,
@@ -134,6 +134,24 @@
                 bounds.extend(usosLayer.getBounds());
             })
             .catch(error => console.error("Error cargando usos.geojson:", error));
+
+        // Cargar capa de usos2
+        fetch("http://localhost:8000/usos2.geojson") // Cambia esta URL si alojas el archivo en otro lugar
+            .then(response => response.json())
+            .then(data => {
+                usos2Layer = L.geoJSON(data, {
+                    style: estiloUsos,
+                    onEachFeature: function(feature, layer) {
+                        const areaFormatted = parseFloat(feature.properties.has).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                        layer.bindPopup(`Cultivo: ${feature.properties.cultivo}<br>Área: ${areaFormatted} ha`);
+                    }
+                });
+
+                usos2Layer.addTo(map);
+                layerControl.addOverlay(usos2Layer, "Usos 2");
+                bounds.extend(usos2Layer.getBounds());
+            })
+            .catch(error => console.error("Error cargando usos2.geojson:", error));
 
         // Cargar capa de fincas
         fetch("fincasssss.geojson")
