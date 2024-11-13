@@ -118,7 +118,7 @@
         }
 
         // Cargar capa de usos
-        fetch("usos.geojson")
+        fetch("https://raw.githubusercontent.com/tu-usuario/tu-repositorio/rama/usos.geojson")
             .then(response => response.json())
             .then(data => {
                 usosLayer = L.geoJSON(data, {
@@ -135,8 +135,8 @@
             })
             .catch(error => console.error("Error cargando usos.geojson:", error));
 
-        // Cargar capa de usos2
-        fetch("http://localhost:8000/usos2.geojson") // Cambia esta URL si alojas el archivo en otro lugar
+        // Cargar capa de usos2 desde GitHub
+        fetch("https://raw.githubusercontent.com/tu-usuario/tu-repositorio/rama/usos2.geojson")
             .then(response => response.json())
             .then(data => {
                 usos2Layer = L.geoJSON(data, {
