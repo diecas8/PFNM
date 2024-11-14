@@ -2,257 +2,30 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Geoportal</title>
+    <title>Prueba de Carga de GeoJSON</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <style>
-        #map { height: 600px; width: 75%; float: right; }
-        .sidebar {
-            width: 25%;
-            float: left;
-            padding: 10px;
-            background-color: #f8f9fa;
-            box-sizing: border-box;
-            height: 600px;
-            overflow-y: auto;
-        }
-        .logo {
-            width: 100px;
-            display: block;
-            margin: 0 auto 10px;
-        }
-        .filter, .summary, .chart-container {
-            background: white;
-            padding: 10px;
-            color: #333;
-            font-size: 14px;
-            margin-top: 10px;
-            line-height: 1.5;
-        }
-        .chart-container {
-            width: 100%;
-            height: 200px;
-        }
-        .credits {
-            text-align: center;
-            margin-top: 10px;
-            font-size: 12px;
-            color: #555;
-        }
-        .loading {
-            text-align: center;
-            font-size: 14px;
-            color: #007bff;
-            display: none;
-        }
-    </style>
+    <style>#map { height: 600px; width: 100%; }</style>
 </head>
 <body>
-    <div class="sidebar">
-        <img src="CBS.png" class="logo" alt="Logo">
-        <div class="filter">
-            <strong>Filtrar por Código de Finca</strong><br>
-            <input type="text" id="codigoFinca" placeholder="Ingrese código de finca" onkeypress="if(event.key === 'Enter') filtrarPorFinca()" />
-            <button onclick="filtrarPorFinca()">Filtrar</button>
-        </div>
-        <div class="loading" id="loadingMessage">Cargando capas...</div>
-        <div id="summary" class="summary"></div>
-        <div class="chart-container">
-            <canvas id="chart"></canvas>
-        </div>
-        <div class="credits">
-            <strong>Creado por:</strong> Diego Castaño P.
-        </div>
-    </div>
     <div id="map"></div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         var map = L.map('map').setView([5.40139, -71.05203], 6);
 
-        // Capas base del mapa
-        var osmBase = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        // Cargar mapa base
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 18,
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
-        var satelliteBase = L.tileLayer('https://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
-            maxZoom: 20,
-            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
-            attribution: 'Imágenes © Google'
-        });
-
-        var baseMaps = {
-            "OpenStreetMap": osmBase,
-            "Satélite": satelliteBase
-        };
-
-        // Control de capas y de escala en el mapa
-        L.control.layers(baseMaps).addTo(map);
-        L.control.scale().addTo(map);
-
-        var bounds = L.latLngBounds();
-        var usosLayer, usos2Layer, fincasLayer, rutasLayer;
-        var chart;
-
-        const colorMap = {
-            'bosque de galería': '#006400',
-            'arroz': '#FFD700',
-            'río': '#87CEEB',
-            'lago': '#4682B4',
-            'estero': '#4682B4',
-            'humedales': '#B0E0E6',
-            'pasto enmalezado': '#9ACD32',
-            'pasto limpio': '#BDB76B',
-            'pasto arbolado': '#228B22',
-            'cacao': '#8B4513',
-            'algarrobo': '#8B4513',
-            'papaya': '#FFA07A',
-            'maíz': '#FFD700',
-            'café': '#8B0000',
-            'otros': '#DAA520',
-            'palma aceite': '#556B2F'
-        };
-
-        function estiloUsos(feature) {
-            const cultivo = feature.properties.cultivo ? feature.properties.cultivo.trim().toLowerCase() : "";
-            const color = colorMap[cultivo] || '#808080';
-            return {
-                color: color,
-                fillOpacity: 0.5,
-                weight: 1
-            };
-        }
-
-        // Función para mostrar el mensaje de carga
-        function showLoadingMessage(show) {
-            document.getElementById('loadingMessage').style.display = show ? 'block' : 'none';
-        }
-
-        // Función de carga de capas GeoJSON
-        function loadGeoJSONLayer(url, styleFunction, onEachFeature) {
-            showLoadingMessage(true);
-            return fetch(url)
-                .then(response => response.json())
-                .then(data => {
-                    const layer = L.geoJSON(data, { style: styleFunction, onEachFeature: onEachFeature });
-                    layer.addTo(map);
-                    showLoadingMessage(false);
-                    return layer;
-                })
-                .catch(error => {
-                    console.error(`Error cargando ${url}:`, error);
-                    showLoadingMessage(false);
-                });
-        }
-
-        // Cargar las capas de usos y usos2
-        loadGeoJSONLayer("https://raw.githubusercontent.com/tu-usuario/tu-repositorio/rama/usos.geojson", estiloUsos, function(feature, layer) {
-            const areaFormatted = parseFloat(feature.properties.has).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            layer.bindPopup(`Cultivo: ${feature.properties.cultivo}<br>Área: ${areaFormatted} ha`);
-        }).then(layer => {
-            usosLayer = layer;
-            bounds.extend(usosLayer.getBounds());
-        });
-
-        loadGeoJSONLayer("https://raw.githubusercontent.com/tu-usuario/tu-repositorio/rama/usos2.geojson", estiloUsos, function(feature, layer) {
-            const areaFormatted = parseFloat(feature.properties.has).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            layer.bindPopup(`Cultivo: ${feature.properties.cultivo}<br>Área: ${areaFormatted} ha`);
-        }).then(layer => {
-            usos2Layer = layer;
-            bounds.extend(usos2Layer.getBounds());
-        });
-
-        // Cargar capas de fincas y rutas
-        loadGeoJSONLayer("fincasssss.geojson", { color: '#000', weight: 2, fillOpacity: 0 }, null)
-            .then(layer => {
-                fincasLayer = layer;
-                bounds.extend(fincasLayer.getBounds());
-            });
-
-        loadGeoJSONLayer("Rutas.geojson", { color: '#FFA500', weight: 2 }, null)
-            .then(layer => {
-                rutasLayer = layer;
-                bounds.extend(rutasLayer.getBounds());
-            });
-
-        setTimeout(() => map.fitBounds(bounds), 1000);
-
-        // Función para filtrar por finca y mostrar el resumen
-        function filtrarPorFinca() {
-            const codigoFinca = document.getElementById("codigoFinca").value.trim().toLowerCase();
-            let resumen = {};
-            let totalArea = 0;
-            let propietario = "";
-            let nombreFinca = ""; 
-            let fincaBounds = L.latLngBounds();
-
-            usosLayer.eachLayer(function(layer) {
-                if (layer.feature.properties.cod_finca && layer.feature.properties.cod_finca.trim().toLowerCase() === codigoFinca) {
-                    map.addLayer(layer);
-                    fincaBounds.extend(layer.getBounds());
-                    const cultivo = layer.feature.properties.cultivo;
-                    const area = parseFloat(layer.feature.properties.has);
-                    totalArea += area;
-                    resumen[cultivo] = (resumen[cultivo] || 0) + area;
-                    propietario = layer.feature.properties.propietari || propietario;
-                    nombreFinca = layer.feature.properties.nom_finca_ || nombreFinca;
-                } else {
-                    map.removeLayer(layer);
-                }
-            });
-
-            if (fincaBounds.isValid()) {
-                map.fitBounds(fincaBounds);
-            } else {
-                alert("Código de finca no encontrado.");
-            }
-
-            // Mostrar resumen
-            const summaryDiv = document.getElementById("summary");
-            summaryDiv.innerHTML = `<strong>Resumen de Cultivos para Finca ${codigoFinca.toUpperCase()}</strong><br>`;
-            summaryDiv.innerHTML += `Propietario: ${propietario}<br>`;
-            summaryDiv.innerHTML += `Nombre de la Finca: ${nombreFinca}<br><br>`;
-            let labels = [], data = [], backgroundColors = [];
-
-            for (let cultivo in resumen) {
-                const area = resumen[cultivo].toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                summaryDiv.innerHTML += `${cultivo}: ${area} ha<br>`;
-                labels.push(cultivo);
-                data.push(resumen[cultivo]);
-                backgroundColors.push(colorMap[cultivo.toLowerCase()] || '#808080');
-            }
-
-            summaryDiv.innerHTML += `<br><strong>Total de la finca: ${totalArea.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ha</strong>`;
-
-            if (chart) chart.destroy();
-            const ctx = document.getElementById('chart').getContext('2d');
-            chart = new Chart(ctx, {
-                type: 'pie',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: data,
-                        backgroundColor: backgroundColors
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                    const porcentaje = ((context.raw / total) * 100).toFixed(2);
-                                    return `${context.label}: ${context.raw.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ha (${porcentaje}%)`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
+        // Prueba de carga de un archivo GeoJSON
+        fetch("https://raw.githubusercontent.com/tu-usuario/tu-repositorio/rama/usos.geojson")
+            .then(response => response.json())
+            .then(data => {
+                L.geoJSON(data).addTo(map);
+            })
+            .catch(error => console.error("Error cargando usos.geojson:", error));
     </script>
 </body>
 </html>
