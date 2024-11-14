@@ -116,7 +116,7 @@
         }
 
         // Cargar capa usos.geojson
-        fetch("https://raw.githubusercontent.com/tu-usuario/tu-repositorio/rama/usos.geojson")
+        fetch("https://raw.githubusercontent.com/tu-usuario/tu-repositorio/main/usos.geojson")
             .then(response => response.json())
             .then(data => {
                 usosLayer = L.geoJSON(data, {
@@ -133,7 +133,7 @@
             .catch(error => console.error("Error cargando usos.geojson:", error));
 
         // Cargar capa usos2.geojson
-        fetch("https://raw.githubusercontent.com/tu-usuario/tu-repositorio/rama/usos2.geojson")
+        fetch("https://raw.githubusercontent.com/tu-usuario/tu-repositorio/main/usos2.geojson")
             .then(response => response.json())
             .then(data => {
                 usos2Layer = L.geoJSON(data, {
@@ -172,80 +172,6 @@
             .catch(error => console.error("Error cargando Rutas.geojson:", error));
 
         setTimeout(() => map.fitBounds(bounds), 500);
-
-        function filtrarPorFinca() {
-            var codigoFinca = document.getElementById("codigoFinca").value.trim().toLowerCase();
-            var resumen = {};
-            var totalArea = 0;
-            var propietario = "";
-            var nombreFinca = "";  
-            var fincaBounds = L.latLngBounds();
-
-            usosLayer.eachLayer(function(layer) {
-                if (layer.feature.properties.cod_finca && layer.feature.properties.cod_finca.trim().toLowerCase() === codigoFinca) {
-                    map.addLayer(layer);
-                    fincaBounds.extend(layer.getBounds());
-                    var cultivo = layer.feature.properties.cultivo;
-                    var area = parseFloat(layer.feature.properties.has);
-                    totalArea += area;
-                    resumen[cultivo] = (resumen[cultivo] || 0) + area;
-                    propietario = layer.feature.properties.propietari || propietario;
-                    nombreFinca = layer.feature.properties.nom_finca_ || nombreFinca;  
-                } else {
-                    map.removeLayer(layer);
-                }
-            });
-
-            if (fincaBounds.isValid()) {
-                map.fitBounds(fincaBounds);
-            } else {
-                alert("Código de finca no encontrado.");
-            }
-
-            var summaryDiv = document.getElementById("summary");
-            summaryDiv.innerHTML = `<strong>Resumen de Cultivos para Finca ${codigoFinca.toUpperCase()}</strong><br>`;
-            summaryDiv.innerHTML += `Propietario: ${propietario}<br>`;
-            summaryDiv.innerHTML += `Nombre de la Finca: ${nombreFinca}<br><br>`;
-            var labels = [], data = [], backgroundColors = [];
-
-            for (var cultivo in resumen) {
-                const area = resumen[cultivo].toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                summaryDiv.innerHTML += `${cultivo}: ${area} ha<br>`;
-                labels.push(cultivo);
-                data.push(resumen[cultivo]);
-                backgroundColors.push(colorMap[cultivo.toLowerCase()] || 'gray');
-            }
-
-            summaryDiv.innerHTML += `<br><strong>Total de la finca: ${totalArea.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ha</strong>`;
-
-            if (chart) chart.destroy();
-            const ctx = document.getElementById('chart').getContext('2d');
-            chart = new Chart(ctx, {
-                type: 'pie',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: data,
-                        backgroundColor: backgroundColors
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                    const porcentaje = ((context.raw / total) * 100).toFixed(2);
-                                    return `${context.label}: ${context.raw.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ha (${porcentaje}%)`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
     </script>
 </body>
 </html>
