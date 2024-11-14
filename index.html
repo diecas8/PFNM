@@ -38,6 +38,24 @@
             font-size: 12px;
             color: #555;
         }
+        .loading {
+            text-align: center;
+            font-size: 14px;
+            color: #007bff;
+            display: none;
+        }
+        .reset-view {
+            margin-top: 10px;
+            text-align: center;
+        }
+        .reset-view button {
+            padding: 5px 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
     </style>
 </head>
 <body>
@@ -48,9 +66,13 @@
             <input type="text" id="codigoFinca" placeholder="Ingrese código de finca" onkeypress="if(event.key === 'Enter') filtrarPorFinca()" />
             <button onclick="filtrarPorFinca()">Filtrar</button>
         </div>
+        <div class="loading" id="loadingMessage">Cargando capas...</div>
         <div id="summary" class="summary"></div>
         <div class="chart-container">
             <canvas id="chart"></canvas>
+        </div>
+        <div class="reset-view">
+            <button onclick="resetView()">Restablecer Vista</button>
         </div>
         <div class="credits">
             <strong>Creado por:</strong> Diego Castaño P.
@@ -61,7 +83,7 @@
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        var map = L.map('map').setView([0, 0], 2);
+        var map = L.map('map').setView([5.40139, -71.05203], 6); // Centrado en Colombia
 
         // Capas base del mapa
         var osmBase = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -80,8 +102,10 @@
             "Satélite": satelliteBase
         };
 
-        // Control de capas
+        // Control de capas y de zoom
         L.control.layers(baseMaps, null, { collapsed: false }).addTo(map);
+        L.control.scale().addTo(map);
+
         var bounds = L.latLngBounds();
         var usosLayer, usos2Layer, fincasLayer, rutasLayer;
         var layerControl = L.control.layers(null, null, { collapsed: false }).addTo(map);
@@ -117,65 +141,67 @@
             };
         }
 
-        // Cargar capa de usos
-        fetch("https://raw.githubusercontent.com/tu-usuario/tu-repositorio/rama/usos.geojson")
-            .then(response => response.json())
-            .then(data => {
-                usosLayer = L.geoJSON(data, {
-                    style: estiloUsos,
-                    onEachFeature: function(feature, layer) {
-                        const areaFormatted = parseFloat(feature.properties.has).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                        layer.bindPopup(`Cultivo: ${feature.properties.cultivo}<br>Área: ${areaFormatted} ha`);
-                    }
+        // Mostrar mensaje de carga
+        function showLoadingMessage(show) {
+            document.getElementById('loadingMessage').style.display = show ? 'block' : 'none';
+        }
+
+        // Función para cargar capas GeoJSON con mensaje de carga
+        function loadGeoJSONLayer(url, styleFunction, onEachFeature, addToMap = true) {
+            showLoadingMessage(true);
+            return fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    const layer = L.geoJSON(data, { style: styleFunction, onEachFeature: onEachFeature });
+                    if (addToMap) layer.addTo(map);
+                    showLoadingMessage(false);
+                    return layer;
+                })
+                .catch(error => {
+                    console.error(`Error cargando ${url}:`, error);
+                    showLoadingMessage(false);
                 });
-                
-                usosLayer.addTo(map);
-                layerControl.addOverlay(usosLayer, "Usos");
-                bounds.extend(usosLayer.getBounds());
-            })
-            .catch(error => console.error("Error cargando usos.geojson:", error));
+        }
 
-        // Cargar capa de usos2 desde GitHub
-        fetch("https://raw.githubusercontent.com/tu-usuario/tu-repositorio/rama/usos2.geojson")
-            .then(response => response.json())
-            .then(data => {
-                usos2Layer = L.geoJSON(data, {
-                    style: estiloUsos,
-                    onEachFeature: function(feature, layer) {
-                        const areaFormatted = parseFloat(feature.properties.has).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                        layer.bindPopup(`Cultivo: ${feature.properties.cultivo}<br>Área: ${areaFormatted} ha`);
-                    }
-                });
+        // Cargar capas
+        loadGeoJSONLayer("https://raw.githubusercontent.com/tu-usuario/tu-repositorio/rama/usos.geojson", estiloUsos, (feature, layer) => {
+            const areaFormatted = parseFloat(feature.properties.has).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            layer.bindPopup(`Cultivo: ${feature.properties.cultivo}<br>Área: ${areaFormatted} ha`);
+        }).then(layer => {
+            usosLayer = layer;
+            layerControl.addOverlay(usosLayer, "Usos");
+            bounds.extend(usosLayer.getBounds());
+        });
 
-                usos2Layer.addTo(map);
-                layerControl.addOverlay(usos2Layer, "Usos 2");
-                bounds.extend(usos2Layer.getBounds());
-            })
-            .catch(error => console.error("Error cargando usos2.geojson:", error));
+        loadGeoJSONLayer("https://raw.githubusercontent.com/tu-usuario/tu-repositorio/rama/usos2.geojson", estiloUsos, (feature, layer) => {
+            const areaFormatted = parseFloat(feature.properties.has).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            layer.bindPopup(`Cultivo: ${feature.properties.cultivo}<br>Área: ${areaFormatted} ha`);
+        }).then(layer => {
+            usos2Layer = layer;
+            layerControl.addOverlay(usos2Layer, "Usos 2");
+            bounds.extend(usos2Layer.getBounds());
+        });
 
-        // Cargar capa de fincas
-        fetch("fincasssss.geojson")
-            .then(response => response.json())
-            .then(data => {
-                fincasLayer = L.geoJSON(data, { style: { color: '#000', weight: 2, fillOpacity: 0 } });
-                fincasLayer.addTo(map);
+        loadGeoJSONLayer("fincasssss.geojson", { color: '#000', weight: 2, fillOpacity: 0 }, null, true)
+            .then(layer => {
+                fincasLayer = layer;
                 layerControl.addOverlay(fincasLayer, "Fincas");
                 bounds.extend(fincasLayer.getBounds());
-            })
-            .catch(error => console.error("Error cargando fincasssss.geojson:", error));
+            });
 
-        // Cargar capa de rutas
-        fetch("Rutas.geojson")
-            .then(response => response.json())
-            .then(data => {
-                rutasLayer = L.geoJSON(data, { style: { color: '#FFA500', weight: 2 } });
-                rutasLayer.addTo(map);
+        loadGeoJSONLayer("Rutas.geojson", { color: '#FFA500', weight: 2 }, null, true)
+            .then(layer => {
+                rutasLayer = layer;
                 layerControl.addOverlay(rutasLayer, "Rutas");
                 bounds.extend(rutasLayer.getBounds());
-            })
-            .catch(error => console.error("Error cargando Rutas.geojson:", error));
+            });
 
         setTimeout(() => map.fitBounds(bounds), 500);
+
+        // Función de restablecimiento de vista
+        function resetView() {
+            map.fitBounds(bounds);
+        }
 
         // Filtrar por código de finca y mostrar el resumen de cultivos
         function filtrarPorFinca() {
