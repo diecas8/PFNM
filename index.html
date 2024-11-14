@@ -44,18 +44,6 @@
             color: #007bff;
             display: none;
         }
-        .reset-view {
-            margin-top: 10px;
-            text-align: center;
-        }
-        .reset-view button {
-            padding: 5px 10px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 3px;
-            cursor: pointer;
-        }
     </style>
 </head>
 <body>
@@ -71,9 +59,6 @@
         <div class="chart-container">
             <canvas id="chart"></canvas>
         </div>
-        <div class="reset-view">
-            <button onclick="resetView()">Restablecer Vista</button>
-        </div>
         <div class="credits">
             <strong>Creado por:</strong> Diego Castaño P.
         </div>
@@ -83,7 +68,7 @@
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        var map = L.map('map').setView([5.40139, -71.05203], 6); // Centrado en Colombia
+        var map = L.map('map').setView([5.40139, -71.05203], 6);
 
         // Capas base del mapa
         var osmBase = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -102,16 +87,14 @@
             "Satélite": satelliteBase
         };
 
-        // Control de capas y de zoom
-        L.control.layers(baseMaps, null, { collapsed: false }).addTo(map);
+        // Control de capas y de escala en el mapa
+        L.control.layers(baseMaps).addTo(map);
         L.control.scale().addTo(map);
 
         var bounds = L.latLngBounds();
         var usosLayer, usos2Layer, fincasLayer, rutasLayer;
-        var layerControl = L.control.layers(null, null, { collapsed: false }).addTo(map);
         var chart;
 
-        // Colores específicos para cada tipo de cultivo
         const colorMap = {
             'bosque de galería': '#006400',
             'arroz': '#FFD700',
@@ -141,19 +124,19 @@
             };
         }
 
-        // Mostrar mensaje de carga
+        // Función para mostrar el mensaje de carga
         function showLoadingMessage(show) {
             document.getElementById('loadingMessage').style.display = show ? 'block' : 'none';
         }
 
-        // Función para cargar capas GeoJSON con mensaje de carga
-        function loadGeoJSONLayer(url, styleFunction, onEachFeature, addToMap = true) {
+        // Función de carga de capas GeoJSON
+        function loadGeoJSONLayer(url, styleFunction, onEachFeature) {
             showLoadingMessage(true);
             return fetch(url)
                 .then(response => response.json())
                 .then(data => {
                     const layer = L.geoJSON(data, { style: styleFunction, onEachFeature: onEachFeature });
-                    if (addToMap) layer.addTo(map);
+                    layer.addTo(map);
                     showLoadingMessage(false);
                     return layer;
                 })
@@ -163,65 +146,57 @@
                 });
         }
 
-        // Cargar capas
-        loadGeoJSONLayer("https://raw.githubusercontent.com/tu-usuario/tu-repositorio/rama/usos.geojson", estiloUsos, (feature, layer) => {
+        // Cargar las capas de usos y usos2
+        loadGeoJSONLayer("https://raw.githubusercontent.com/tu-usuario/tu-repositorio/rama/usos.geojson", estiloUsos, function(feature, layer) {
             const areaFormatted = parseFloat(feature.properties.has).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             layer.bindPopup(`Cultivo: ${feature.properties.cultivo}<br>Área: ${areaFormatted} ha`);
         }).then(layer => {
             usosLayer = layer;
-            layerControl.addOverlay(usosLayer, "Usos");
             bounds.extend(usosLayer.getBounds());
         });
 
-        loadGeoJSONLayer("https://raw.githubusercontent.com/tu-usuario/tu-repositorio/rama/usos2.geojson", estiloUsos, (feature, layer) => {
+        loadGeoJSONLayer("https://raw.githubusercontent.com/tu-usuario/tu-repositorio/rama/usos2.geojson", estiloUsos, function(feature, layer) {
             const areaFormatted = parseFloat(feature.properties.has).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             layer.bindPopup(`Cultivo: ${feature.properties.cultivo}<br>Área: ${areaFormatted} ha`);
         }).then(layer => {
             usos2Layer = layer;
-            layerControl.addOverlay(usos2Layer, "Usos 2");
             bounds.extend(usos2Layer.getBounds());
         });
 
-        loadGeoJSONLayer("fincasssss.geojson", { color: '#000', weight: 2, fillOpacity: 0 }, null, true)
+        // Cargar capas de fincas y rutas
+        loadGeoJSONLayer("fincasssss.geojson", { color: '#000', weight: 2, fillOpacity: 0 }, null)
             .then(layer => {
                 fincasLayer = layer;
-                layerControl.addOverlay(fincasLayer, "Fincas");
                 bounds.extend(fincasLayer.getBounds());
             });
 
-        loadGeoJSONLayer("Rutas.geojson", { color: '#FFA500', weight: 2 }, null, true)
+        loadGeoJSONLayer("Rutas.geojson", { color: '#FFA500', weight: 2 }, null)
             .then(layer => {
                 rutasLayer = layer;
-                layerControl.addOverlay(rutasLayer, "Rutas");
                 bounds.extend(rutasLayer.getBounds());
             });
 
-        setTimeout(() => map.fitBounds(bounds), 500);
+        setTimeout(() => map.fitBounds(bounds), 1000);
 
-        // Función de restablecimiento de vista
-        function resetView() {
-            map.fitBounds(bounds);
-        }
-
-        // Filtrar por código de finca y mostrar el resumen de cultivos
+        // Función para filtrar por finca y mostrar el resumen
         function filtrarPorFinca() {
-            var codigoFinca = document.getElementById("codigoFinca").value.trim().toLowerCase();
-            var resumen = {};
-            var totalArea = 0;
-            var propietario = "";
-            var nombreFinca = ""; 
-            var fincaBounds = L.latLngBounds();
+            const codigoFinca = document.getElementById("codigoFinca").value.trim().toLowerCase();
+            let resumen = {};
+            let totalArea = 0;
+            let propietario = "";
+            let nombreFinca = ""; 
+            let fincaBounds = L.latLngBounds();
 
             usosLayer.eachLayer(function(layer) {
                 if (layer.feature.properties.cod_finca && layer.feature.properties.cod_finca.trim().toLowerCase() === codigoFinca) {
                     map.addLayer(layer);
                     fincaBounds.extend(layer.getBounds());
-                    var cultivo = layer.feature.properties.cultivo;
-                    var area = parseFloat(layer.feature.properties.has);
+                    const cultivo = layer.feature.properties.cultivo;
+                    const area = parseFloat(layer.feature.properties.has);
                     totalArea += area;
                     resumen[cultivo] = (resumen[cultivo] || 0) + area;
                     propietario = layer.feature.properties.propietari || propietario;
-                    nombreFinca = layer.feature.properties.nom_finca_ || nombreFinca;  
+                    nombreFinca = layer.feature.properties.nom_finca_ || nombreFinca;
                 } else {
                     map.removeLayer(layer);
                 }
@@ -233,13 +208,14 @@
                 alert("Código de finca no encontrado.");
             }
 
-            var summaryDiv = document.getElementById("summary");
+            // Mostrar resumen
+            const summaryDiv = document.getElementById("summary");
             summaryDiv.innerHTML = `<strong>Resumen de Cultivos para Finca ${codigoFinca.toUpperCase()}</strong><br>`;
             summaryDiv.innerHTML += `Propietario: ${propietario}<br>`;
             summaryDiv.innerHTML += `Nombre de la Finca: ${nombreFinca}<br><br>`;
-            var labels = [], data = [], backgroundColors = [];
+            let labels = [], data = [], backgroundColors = [];
 
-            for (var cultivo in resumen) {
+            for (let cultivo in resumen) {
                 const area = resumen[cultivo].toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                 summaryDiv.innerHTML += `${cultivo}: ${area} ha<br>`;
                 labels.push(cultivo);
