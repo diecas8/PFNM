@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Prueba de Carga de GeoJSON</title>
+    <title>Prueba de Capa GeoJSON</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>#map { height: 600px; width: 100%; }</style>
 </head>
@@ -19,13 +19,13 @@
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
-        // Prueba de carga de un archivo GeoJSON
-        fetch("https://raw.githubusercontent.com/tu-usuario/tu-repositorio/rama/usos.geojson")
+        // Ejemplo de carga de capa GeoJSON desde una URL pública
+        fetch("https://raw.githubusercontent.com/glynnbird/countriesgeojson/master/Colombia.geojson")
             .then(response => response.json())
             .then(data => {
                 L.geoJSON(data).addTo(map);
             })
-            .catch(error => console.error("Error cargando usos.geojson:", error));
+            .catch(error => console.error("Error cargando la capa GeoJSON de ejemplo:", error));
     </script>
 </body>
 </html>
