@@ -129,6 +129,7 @@
                 usosLayer.addTo(map);
                 layerControl.addOverlay(usosLayer, "Usos");
                 bounds.extend(usosLayer.getBounds());
+                map.fitBounds(bounds);
             })
             .catch(error => console.error("Error cargando usos.geojson:", error));
 
@@ -146,6 +147,7 @@
                 usos2Layer.addTo(map);
                 layerControl.addOverlay(usos2Layer, "Usos 2");
                 bounds.extend(usos2Layer.getBounds());
+                map.fitBounds(bounds);
             })
             .catch(error => console.error("Error cargando usos2.geojson:", error));
 
@@ -170,8 +172,6 @@
                 bounds.extend(rutasLayer.getBounds());
             })
             .catch(error => console.error("Error cargando Rutas.geojson:", error));
-
-        setTimeout(() => map.fitBounds(bounds), 500);
     </script>
 </body>
 </html>
