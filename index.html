@@ -34,7 +34,7 @@
     <div class="sidebar">
         <img src="CBS.png" class="logo" alt="Logo">
         <div class="filter">
-            <strong>Seleccionar Código de Finca</strong><br>
+            <strong>Seleccionar Finca</strong><br>
             <select id="fincaSelector" onchange="centrarEnFinca()">
                 <option value="">Seleccione una finca</option>
             </select>
@@ -55,9 +55,9 @@
         var bounds = L.latLngBounds();
         var layerControl = L.control.layers(null, null, { collapsed: false }).addTo(map);
 
-        // Colores para cultivos
+        // Colores para cultivos, incluyendo un mejor color para `Bosque de galería`
         const colorMap = {
-            'bosque de galería': '#2E8B57',
+            'bosque de galería': '#006400', // Verde oscuro
             'arroz': '#FFD700',
             'río': '#1E90FF',
             'lago': '#4682B4',
@@ -91,11 +91,11 @@
                                     const area = feature.properties.has ? feature.properties.has.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "N/A";
                                     layer.bindPopup(`<strong>Cultivo:</strong> ${cultivo}<br><strong>Área:</strong> ${area} ha`);
 
-                                    // Agregar códigos de finca al selector
-                                    if (feature.properties.cod_finca) {
+                                    // Agregar nombres de finca al selector
+                                    if (feature.properties.nombre_finca) {
                                         const option = document.createElement('option');
                                         option.value = JSON.stringify(layer.getBounds());
-                                        option.textContent = `Finca ${feature.properties.cod_finca}`;
+                                        option.textContent = feature.properties.nombre_finca;
                                         fincaSelector.appendChild(option);
                                     }
                                 }
@@ -122,7 +122,6 @@
         const baseURL = "https://raw.githubusercontent.com/diecas8/PFNM/main/";
         const rutasGeoJSON = `${baseURL}Rutas.geojson`;
         const usos2GeoJSON = `${baseURL}usos2.geojson`;
-        const fincasGeoJSON = `${baseURL}fincas.geojson`;
 
         // Estilo para `usos2` con colores según el cultivo
         function estiloUsos(feature) {
