@@ -61,13 +61,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         // Inicializar el mapa
-        let map = null;
-
-        try {
-            map = L.map('map').setView([5.40139, -71.05203], 10);
-        } catch (error) {
-            console.error("Error inicializando el mapa:", error);
-        }
+        var map = L.map('map').setView([5.40139, -71.05203], 10);
 
         var osmBase = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 18,
@@ -97,30 +91,41 @@
         };
 
         var fincaSelector = document.getElementById('fincaSelector');
-        var geojsonData = null;
+        var summaryDiv = document.getElementById('summary');
+        var chartCanvas = document.getElementById('chart');
+        var geojsonData, fincas = new Map();
+        var chart;
 
-        function cargarGeoJSON(url, estilo, nombreCapa) {
+        // Cargar los GeoJSON
+        function cargarGeoJSON(url, estilo, nombreCapa, etiquetar = false) {
             fetch(url)
-                .then(response => {
-                    if (!response.ok) throw new Error(`No se pudo cargar ${nombreCapa}`);
-                    return response.json();
-                })
+                .then(response => response.json())
                 .then(data => {
                     geojsonData = data;
                     var layer = L.geoJSON(data, {
                         style: estilo,
                         onEachFeature: function(feature, layer) {
-                            if (feature.properties) {
-                                const codFinca = feature.properties.cod_finca || "N/A";
-                                const nombreFinca = feature.properties.nom_finca_ || "Sin nombre";
-                                const fincaLabel = `${codFinca} - ${nombreFinca}`;
+                            const codFinca = feature.properties.cod_finca || "N/A";
+                            const nombreFinca = feature.properties.nom_finca_ || "Sin nombre";
+                            const fincaLabel = `${codFinca} - ${nombreFinca}`;
 
-                                if (!Array.from(fincaSelector.options).some(opt => opt.textContent === fincaLabel)) {
-                                    const option = document.createElement('option');
-                                    option.value = codFinca;
-                                    option.textContent = fincaLabel;
-                                    fincaSelector.appendChild(option);
-                                }
+                            if (etiquetar && !fincas.has(codFinca)) {
+                                fincas.set(codFinca, fincaLabel);
+
+                                const option = document.createElement('option');
+                                option.value = codFinca;
+                                option.textContent = fincaLabel;
+                                fincaSelector.appendChild(option);
+                            }
+
+                            // Etiquetas emergentes para el uso del suelo
+                            if (feature.properties.cultivo) {
+                                const cultivo = feature.properties.cultivo;
+                                const area = parseFloat(feature.properties.has).toLocaleString('es-ES', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2
+                                });
+                                layer.bindPopup(`Cultivo: ${cultivo}<br>Área: ${area} ha`);
                             }
                         }
                     });
@@ -132,24 +137,77 @@
                 .catch(error => console.error(`Error cargando ${nombreCapa}:`, error));
         }
 
-        function estiloUsos(feature) {
-            const cultivo = feature.properties.cultivo 
-                ? feature.properties.cultivo.trim().toLowerCase() 
-                : "otros";
-            const color = colorMap[cultivo] || '#D3D3D3';
-            return { color: color, fillOpacity: 0.7, weight: 1 };
+        // Centrar en finca seleccionada
+        function centrarEnFinca() {
+            const selectedFinca = fincaSelector.value;
+            if (!selectedFinca || !geojsonData) return;
+
+            let areaTotal = 0;
+            let propietario = "N/A";
+            const cultivos = {};
+
+            const bounds = L.latLngBounds();
+
+            geojsonData.features.forEach(feature => {
+                if (feature.properties.cod_finca === selectedFinca) {
+                    const cultivo = feature.properties.cultivo 
+                        ? feature.properties.cultivo.trim().toLowerCase() 
+                        : "Sin información";
+                    const area = parseFloat(feature.properties.has) || 0;
+
+                    areaTotal += area;
+                    propietario = feature.properties.propietari || propietario;
+
+                    if (!cultivos[cultivo]) {
+                        cultivos[cultivo] = 0;
+                    }
+                    cultivos[cultivo] += area;
+
+                    if (feature.geometry) {
+                        bounds.extend(L.geoJSON(feature).getBounds());
+                    }
+                }
+            });
+
+            const nombreFinca = fincaSelector.options[fincaSelector.selectedIndex].text.split(" - ")[1];
+            summaryDiv.innerHTML = `
+                <strong>Nombre de la Finca:</strong> ${nombreFinca}<br>
+                <strong>Propietario:</strong> ${propietario}<br>
+                <strong>Área Total:</strong> ${areaTotal.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ha
+            `;
+
+            generarGrafico(cultivos);
+            map.fitBounds(bounds);
         }
 
-        // Enlaces "raw" de GitHub
+        // Generar gráfico
+        function generarGrafico(cultivos) {
+            if (chart) chart.destroy();
+            const labels = Object.keys(cultivos).sort();
+            const data = labels.map(cultivo => cultivos[cultivo]);
+            const backgroundColors = labels.map(cultivo => colorMap[cultivo] || '#D3D3D3');
+
+            chart = new Chart(chartCanvas, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: backgroundColors
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: { legend: { position: 'top' } }
+                }
+            });
+        }
+
+        // URLs de los GeoJSON
         const baseURL = "https://raw.githubusercontent.com/diecas8/PFNM/main/";
-        const usos2GeoJSON = `${baseURL}usos2.geojson`;
-
-        // Cargar capas con validaciones
-        try {
-            cargarGeoJSON(usos2GeoJSON, estiloUsos, "Usos 2");
-        } catch (error) {
-            console.error("Error cargando GeoJSON:", error);
-        }
+        cargarGeoJSON(`${baseURL}Rutas.geojson`, { color: '#FF6347', weight: 2 }, "Rutas");
+        cargarGeoJSON(`${baseURL}fincas.geojson`, { color: '#000000', weight: 1 }, "Fincas", true);
+        cargarGeoJSON(`${baseURL}usos2.geojson`, estiloUsos, "Usos 2", true);
     </script>
 </body>
 </html>
