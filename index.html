@@ -94,7 +94,7 @@
         var fincaSelector = document.getElementById('fincaSelector');
         var summaryDiv = document.getElementById('summary');
         var chartCanvas = document.getElementById('chart');
-        var geojsonData, fincas = new Map();
+        var geojsonData, fincas = new Set(); // Usar un Set para evitar duplicados
         var chart;
 
         // Función para cargar capas GeoJSON
@@ -110,16 +110,14 @@
                         style: estilo,
                         onEachFeature: function (feature, layer) {
                             const codFinca = feature.properties.cod_finca || "N/A";
-                            const nombreFinca = feature.properties.nom_finca_ || "Sin nombre";
-                            const fincaLabel = `${codFinca} - ${nombreFinca}`;
 
-                            // Agregar opciones únicas al selector
+                            // Agregar código único al selector
                             if (etiquetar && !fincas.has(codFinca)) {
-                                fincas.set(codFinca, fincaLabel);
+                                fincas.add(codFinca);
 
                                 const option = document.createElement('option');
                                 option.value = codFinca;
-                                option.textContent = fincaLabel;
+                                option.textContent = codFinca; // Solo mostrar cod_finca
                                 fincaSelector.appendChild(option);
                             }
 
@@ -167,10 +165,8 @@
                 }
             });
 
-            const nombreFinca = fincaSelector.options[fincaSelector.selectedIndex].text.split(" - ")[1];
             summaryDiv.innerHTML = `
                 <strong>Código:</strong> ${selectedFinca}<br>
-                <strong>Nombre de la Finca:</strong> ${nombreFinca}<br>
                 <strong>Propietario:</strong> ${propietario}<br>
                 <strong>Área Total:</strong> ${areaTotal.toFixed(2)} ha
             `;
