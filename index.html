@@ -71,24 +71,24 @@
         var bounds = L.latLngBounds();
         var layerControl = L.control.layers(null, null, { collapsed: false }).addTo(map);
 
-        // Colores para los cultivos
+        // Esquema de colores actualizado para cultivos
         const colorMap = {
-            'bosque de galería': '#006400',
-            'arroz': '#FFD700',
-            'río': '#1E90FF',
-            'lago': '#4682B4',
-            'estero': '#00CED1',
-            'humedales': '#98FB98',
-            'pasto enmalezado': '#9ACD32',
-            'pasto limpio': '#32CD32',
-            'pasto arbolado': '#6B8E23',
-            'cacao': '#8B4513',
-            'algarrobo': '#A0522D',
-            'papaya': '#FF6347',
-            'maíz': '#FFA500',
-            'café': '#8B0000',
-            'otros': '#808080',
-            'palma aceite': '#D2691E'
+            'bosque de galería': '#1b5e20',
+            'arroz': '#fdd835',
+            'río': '#0288d1',
+            'lago': '#03a9f4',
+            'estero': '#00bcd4',
+            'humedales': '#8bc34a',
+            'pasto enmalezado': '#7cb342',
+            'pasto limpio': '#43a047',
+            'pasto arbolado': '#558b2f',
+            'cacao': '#6d4c41',
+            'algarrobo': '#5d4037',
+            'papaya': '#e64a19',
+            'maíz': '#ff9800',
+            'café': '#d32f2f',
+            'otros': '#9e9e9e',
+            'palma aceite': '#795548'
         };
 
         var fincaSelector = document.getElementById('fincaSelector');
@@ -105,37 +105,27 @@
                     return response.json();
                 })
                 .then(data => {
-                    geojsonData = data; // Guardamos los datos para referencia
+                    geojsonData = data;
                     var layer = L.geoJSON(data, {
                         style: estilo,
                         onEachFeature: function (feature, layer) {
                             const codFinca = feature.properties.cod_finca || "N/A";
-                            let nombreFinca = feature.properties.nom_finca_ || "Sin nombre";
-
-                            if (!nombreFinca || nombreFinca.trim() === "") {
-                                nombreFinca = "Sin nombre";
-                            }
-
+                            const nombreFinca = feature.properties.nom_finca_ || "Sin nombre";
                             const fincaLabel = `${codFinca} - ${nombreFinca}`;
 
-                            // Asegurar que cada finca aparezca solo una vez en el selector
+                            // Agregar opciones únicas al selector
                             if (etiquetar && !fincas.has(codFinca)) {
                                 fincas.set(codFinca, fincaLabel);
 
-                                // Agregar al selector
                                 const option = document.createElement('option');
-                                option.value = codFinca; // Usamos el código como valor
-                                option.textContent = fincaLabel; // Mostrar "cod_finca - nom_finca_"
+                                option.value = codFinca;
+                                option.textContent = fincaLabel;
                                 fincaSelector.appendChild(option);
                             }
 
-                            // Etiquetas emergentes
                             if (feature.properties.cultivo) {
                                 const cultivo = feature.properties.cultivo;
-                                const area = parseFloat(feature.properties.has).toLocaleString('es-ES', {
-                                    minimumFractionDigits: 2,
-                                    maximumFractionDigits: 2
-                                });
+                                const area = parseFloat(feature.properties.has).toFixed(2);
                                 layer.bindPopup(`Cultivo: ${cultivo}<br>Área: ${area} ha`);
                             }
                         }
@@ -179,20 +169,23 @@
 
             const nombreFinca = fincaSelector.options[fincaSelector.selectedIndex].text.split(" - ")[1];
             summaryDiv.innerHTML = `
+                <strong>Código:</strong> ${selectedFinca}<br>
                 <strong>Nombre de la Finca:</strong> ${nombreFinca}<br>
                 <strong>Propietario:</strong> ${propietario}<br>
-                <strong>Área Total:</strong> ${areaTotal.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ha
+                <strong>Área Total:</strong> ${areaTotal.toFixed(2)} ha
             `;
 
-            generarGrafico(cultivos);
+            generarGrafico(cultivos, areaTotal);
             map.fitBounds(bounds);
         }
 
         // Generar gráfico de torta
-        function generarGrafico(cultivos) {
+        function generarGrafico(cultivos, areaTotal) {
             if (chart) chart.destroy();
+
             const labels = Object.keys(cultivos).sort();
             const data = labels.map(cultivo => cultivos[cultivo]);
+            const percentages = data.map(area => ((area / areaTotal) * 100).toFixed(2));
             const backgroundColors = labels.map(cultivo => colorMap[cultivo] || '#D3D3D3');
 
             chart = new Chart(chartCanvas, {
@@ -206,7 +199,17 @@
                 },
                 options: {
                     responsive: true,
-                    plugins: { legend: { position: 'top' } }
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const index = context.dataIndex;
+                                    return `${labels[index]}: ${data[index]} ha (${percentages[index]}%)`;
+                                }
+                            }
+                        },
+                        legend: { position: 'top' }
+                    }
                 }
             });
         }
@@ -219,7 +222,7 @@
             const cultivo = feature.properties.cultivo ? feature.properties.cultivo.trim().toLowerCase() : "otros";
             const color = colorMap[cultivo] || '#D3D3D3';
             return { color: color, fillOpacity: 0.7, weight: 1 };
-        }, "Usos 2", true);
+        }, "Usos 2");
     </script>
 </body>
 </html>
