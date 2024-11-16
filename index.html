@@ -61,6 +61,7 @@
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
+        // Inicializar el mapa
         var map = L.map('map').setView([5.40139, -71.05203], 10);
 
         var osmBase = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -82,7 +83,6 @@
         L.control.layers(baseMaps, null, { collapsed: false }).addTo(map);
 
         var bounds = L.latLngBounds();
-        var usos2Layer, fincasLayer, rutasLayer;
         var layerControl = L.control.layers(null, null, { collapsed: false }).addTo(map);
 
         const colorMap = {
@@ -114,45 +114,35 @@
             };
         }
 
-        // Cargar capa usos2.geojson
-        fetch("E:/colab_pfnm/proyectov2/usos2.geojson")
-            .then(response => response.json())
-            .then(data => {
-                usos2Layer = L.geoJSON(data, {
-                    style: estiloUsos,
-                    onEachFeature: function(feature, layer) {
-                        const areaFormatted = parseFloat(feature.properties.has).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                        layer.bindPopup(`Cultivo: ${feature.properties.cultivo}<br>Área: ${areaFormatted} ha`);
+        function cargarGeoJSON(url, estilo, nombreCapa) {
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`No se pudo cargar el archivo: ${url}`);
                     }
-                });
-                usos2Layer.addTo(map);
-                layerControl.addOverlay(usos2Layer, "Usos 2");
-                bounds.extend(usos2Layer.getBounds());
-                map.fitBounds(bounds);
-            })
-            .catch(error => console.error("Error cargando usos2.geojson:", error));
+                    return response.json();
+                })
+                .then(data => {
+                    var layer = L.geoJSON(data, {
+                        style: estilo,
+                        onEachFeature: function(feature, layer) {
+                            if (feature.properties) {
+                                layer.bindPopup(Object.keys(feature.properties).map(key => `<strong>${key}:</strong> ${feature.properties[key]}`).join('<br>'));
+                            }
+                        }
+                    });
+                    layer.addTo(map);
+                    layerControl.addOverlay(layer, nombreCapa);
+                    bounds.extend(layer.getBounds());
+                    map.fitBounds(bounds);
+                })
+                .catch(error => console.error(`Error cargando ${nombreCapa}:`, error));
+        }
 
-        // Cargar capa fincas.geojson
-        fetch("E:/colab_pfnm/proyectov2/fincas.geojson")
-            .then(response => response.json())
-            .then(data => {
-                fincasLayer = L.geoJSON(data, { style: { color: '#000', weight: 2, fillOpacity: 0 } });
-                fincasLayer.addTo(map);
-                layerControl.addOverlay(fincasLayer, "Fincas");
-                bounds.extend(fincasLayer.getBounds());
-            })
-            .catch(error => console.error("Error cargando fincas.geojson:", error));
-
-        // Cargar capa rutas.geojson
-        fetch("E:/colab_pfnm/proyectov2/Rutas.geojson")
-            .then(response => response.json())
-            .then(data => {
-                rutasLayer = L.geoJSON(data, { style: { color: '#FFA500', weight: 2 } });
-                rutasLayer.addTo(map);
-                layerControl.addOverlay(rutasLayer, "Rutas");
-                bounds.extend(rutasLayer.getBounds());
-            })
-            .catch(error => console.error("Error cargando Rutas.geojson:", error));
+        // Cargar capas
+        cargarGeoJSON("http://localhost:8000/Rutas.geojson", { color: '#FFA500', weight: 2 }, "Rutas");
+        cargarGeoJSON("http://localhost:8000/usos2.geojson", estiloUsos, "Usos 2");
+        cargarGeoJSON("http://localhost:8000/fincas.geojson", { color: '#000', weight: 2, fillOpacity: 0 }, "Fincas");
     </script>
 </body>
 </html>
