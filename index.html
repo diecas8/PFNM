@@ -39,24 +39,6 @@
             height: 300px;
             margin-top: 20px;
         }
-        .legend {
-            margin-top: 20px;
-            padding: 10px;
-            background: white;
-            font-size: 14px;
-            line-height: 1.5;
-        }
-        .legend-item {
-            display: flex;
-            align-items: center;
-            margin-bottom: 5px;
-        }
-        .legend-color {
-            width: 20px;
-            height: 20px;
-            margin-right: 10px;
-            border: 1px solid #ccc;
-        }
     </style>
 </head>
 <body>
@@ -72,7 +54,6 @@
         <div class="chart-container">
             <canvas id="chart"></canvas>
         </div>
-        <div id="legend" class="legend"></div>
     </div>
     <div id="map"></div>
 
@@ -92,7 +73,7 @@
 
         // Esquema de colores para cultivos
         const colorMap = {
-            'bosque de galería': '#1b5e20' // Verde fijo para "Bosque de galería"
+            'bosque de galería': '#1b5e20' // Verde oscuro para "Bosque de galería"
         };
         const defaultColors = [
             '#fdd835', '#0288d1', '#03a9f4', '#9e9e9e',
@@ -104,12 +85,11 @@
         var fincaSelector = document.getElementById('fincaSelector');
         var summaryDiv = document.getElementById('summary');
         var chartCanvas = document.getElementById('chart');
-        var legendDiv = document.getElementById('legend');
         var geojsonData, fincas = []; // Lista para almacenar códigos y nombres únicos
         var chart;
 
         // Función para cargar capas GeoJSON
-        function cargarGeoJSON(url, estilo, nombreCapa, etiquetar = false) {
+        function cargarGeoJSON(url, estilo, nombreCapa) {
             fetch(url)
                 .then(response => {
                     if (!response.ok) throw new Error(`Error al cargar ${nombreCapa}`);
@@ -131,7 +111,7 @@
                             }
 
                             // Agregar código y nombre únicos al listado
-                            if (etiquetar && codFinca !== "N/A" && nomFinca !== "Sin nombre") {
+                            if (codFinca !== "N/A" && nomFinca !== "Sin nombre") {
                                 const fincaEntry = `${codFinca} - ${nomFinca}`;
                                 if (!fincas.includes(fincaEntry)) {
                                     fincas.push(fincaEntry);
@@ -145,45 +125,20 @@
                     });
 
                     // Actualizar la lista desplegable
-                    if (etiquetar) {
-                        fincas.sort(); // Ordenar alfabéticamente
-                        fincaSelector.innerHTML = '<option value="">Seleccione una finca</option>';
-                        fincas.forEach(entry => {
-                            const option = document.createElement('option');
-                            option.value = entry.split(' - ')[0]; // Usar solo el código como valor
-                            option.textContent = entry; // Mostrar "código - nombre"
-                            fincaSelector.appendChild(option);
-                        });
-                    }
-
-                    // Actualizar leyenda
-                    actualizarLeyenda();
+                    fincas.sort(); // Ordenar alfabéticamente
+                    fincaSelector.innerHTML = '<option value="">Seleccione una finca</option>';
+                    fincas.forEach(entry => {
+                        const option = document.createElement('option');
+                        option.value = entry.split(' - ')[0]; // Usar solo el código como valor
+                        option.textContent = entry; // Mostrar "código - nombre"
+                        fincaSelector.appendChild(option);
+                    });
 
                     layer.addTo(map);
                     layerControl.addOverlay(layer, nombreCapa);
                     bounds.extend(layer.getBounds());
                 })
                 .catch(error => console.error(`Error cargando ${nombreCapa}:`, error));
-        }
-
-        // Actualizar la leyenda con los colores de los cultivos
-        function actualizarLeyenda() {
-            legendDiv.innerHTML = "<strong>Leyenda:</strong>";
-            Object.entries(colorMap).forEach(([cultivo, color]) => {
-                const legendItem = document.createElement('div');
-                legendItem.className = 'legend-item';
-
-                const colorBox = document.createElement('div');
-                colorBox.className = 'legend-color';
-                colorBox.style.backgroundColor = color;
-
-                const label = document.createElement('span');
-                label.textContent = cultivo;
-
-                legendItem.appendChild(colorBox);
-                legendItem.appendChild(label);
-                legendDiv.appendChild(legendItem);
-            });
         }
 
         // Función para centrar en la finca seleccionada
@@ -249,7 +204,6 @@
                 options: {
                     responsive: true,
                     plugins: {
-                        legend: { display: false },
                         tooltip: {
                             callbacks: {
                                 label: function(context) {
@@ -257,15 +211,14 @@
                                     return `${labels[index]}: ${data[index]} ha (${((data[index] / areaTotal) * 100).toFixed(2)}%)`;
                                 }
                             }
-                        }
+                        },
+                        legend: { position: 'top' }
                     }
                 }
             });
         }
 
         // Cargar capas desde GeoJSON
-        cargarGeoJSON('./Rutas.geojson', { color: '#FF6347', weight: 2 }, "Rutas");
-        cargarGeoJSON('./fincas.geojson', { color: '#000000', weight: 1 }, "Fincas", true);
         cargarGeoJSON('./Cultivos.geojson', function(feature) {
             const cultivo = feature.properties.cultivo || "otros";
             const color = colorMap[cultivo] || '#D3D3D3';
