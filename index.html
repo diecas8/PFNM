@@ -57,18 +57,18 @@
 
         // Colores para cultivos
         const colorMap = {
-            'bosque de galería': '#228B22',
+            'bosque de galería': '#2E8B57',
             'arroz': '#FFD700',
             'río': '#1E90FF',
             'lago': '#4682B4',
             'estero': '#00CED1',
             'humedales': '#98FB98',
-            'pasto enmalezado': '#ADFF2F',
+            'pasto enmalezado': '#9ACD32',
             'pasto limpio': '#32CD32',
             'pasto arbolado': '#6B8E23',
             'cacao': '#8B4513',
             'algarrobo': '#A0522D',
-            'papaya': '#FF4500',
+            'papaya': '#FF6347',
             'maíz': '#FFA500',
             'café': '#8B0000',
             'otros': '#808080',
@@ -85,7 +85,7 @@
                         style: estilo,
                         onEachFeature: function(feature, layer) {
                             if (feature.properties) {
-                                // Etiqueta personalizada solo para `usos2`
+                                // Etiquetas personalizadas
                                 if (nombreCapa === "Usos 2") {
                                     const cultivo = feature.properties.cultivo || "Sin información";
                                     const area = feature.properties.area || "N/A";
