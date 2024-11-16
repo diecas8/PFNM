@@ -72,7 +72,7 @@
         var layerControl = L.control.layers(null, null, { collapsed: false }).addTo(map);
 
         const colorMap = {
-            'bosque de galería': '#006400', // Verde oscuro
+            'bosque de galería': '#006400',
             'arroz': '#FFD700',
             'río': '#1E90FF',
             'lago': '#4682B4',
@@ -99,8 +99,12 @@
         // Cargar GeoJSON
         function cargarGeoJSON(url, estilo, nombreCapa, etiquetar = false) {
             fetch(url)
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) throw new Error(`Error al cargar ${nombreCapa}`);
+                    return response.json();
+                })
                 .then(data => {
+                    geojsonData = data;
                     var layer = L.geoJSON(data, {
                         style: estilo,
                         onEachFeature: function(feature, layer) {
