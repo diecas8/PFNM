@@ -34,7 +34,7 @@
     <div class="sidebar">
         <img src="CBS.png" class="logo" alt="Logo">
         <div class="filter">
-            <strong>Seleccionar Finca</strong><br>
+            <strong>Seleccionar Código de Finca</strong><br>
             <select id="fincaSelector" onchange="centrarEnFinca()">
                 <option value="">Seleccione una finca</option>
             </select>
@@ -85,19 +85,19 @@
                         style: estilo,
                         onEachFeature: function(feature, layer) {
                             if (feature.properties) {
-                                // Etiquetas personalizadas
+                                // Etiquetas personalizadas para usos2
                                 if (nombreCapa === "Usos 2") {
                                     const cultivo = feature.properties.cultivo || "Sin información";
-                                    const area = feature.properties.area || "N/A";
+                                    const area = feature.properties.has ? feature.properties.has.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "N/A";
                                     layer.bindPopup(`<strong>Cultivo:</strong> ${cultivo}<br><strong>Área:</strong> ${area} ha`);
-                                }
 
-                                // Agregar fincas al selector
-                                if (etiquetar && feature.properties.cod_finca && feature.properties.propietario) {
-                                    const option = document.createElement('option');
-                                    option.value = JSON.stringify(layer.getBounds());
-                                    option.textContent = `Finca ${feature.properties.cod_finca} - ${feature.properties.propietario}`;
-                                    fincaSelector.appendChild(option);
+                                    // Agregar códigos de finca al selector
+                                    if (feature.properties.cod_finca) {
+                                        const option = document.createElement('option');
+                                        option.value = JSON.stringify(layer.getBounds());
+                                        option.textContent = `Finca ${feature.properties.cod_finca}`;
+                                        fincaSelector.appendChild(option);
+                                    }
                                 }
                             }
                         }
@@ -133,8 +133,7 @@
 
         // Cargar capas
         cargarGeoJSON(rutasGeoJSON, { color: '#FF6347', weight: 2 }, "Rutas");
-        cargarGeoJSON(usos2GeoJSON, estiloUsos, "Usos 2");
-        cargarGeoJSON(fincasGeoJSON, { color: '#000', weight: 2, fillOpacity: 0 }, "Fincas", true);
+        cargarGeoJSON(usos2GeoJSON, estiloUsos, "Usos 2", true);
     </script>
 </body>
 </html>
