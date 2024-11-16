@@ -61,7 +61,6 @@
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
-        // Inicializar el mapa
         var map = L.map('map').setView([5.40139, -71.05203], 10);
 
         var osmBase = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -84,35 +83,6 @@
 
         var bounds = L.latLngBounds();
         var layerControl = L.control.layers(null, null, { collapsed: false }).addTo(map);
-
-        const colorMap = {
-            'bosque de galería': '#006400',
-            'arroz': '#FFD700',
-            'río': '#0000FF',
-            'lago': '#0000FF',
-            'estero': '#0000FF',
-            'humedales': '#0000FF',
-            'pasto enmalezado': '#ADFF2F',
-            'pasto limpio': '#D2B48C',
-            'pasto arbolado': '#FF6347',
-            'cacao': '#8B4513',
-            'algarrobo': '#A0522D',
-            'papaya': '#FFA500',
-            'maíz': '#FFD700',
-            'café': '#8B0000',
-            'otros': '#FF0000',
-            'palma aceite': '#CD853F'
-        };
-
-        function estiloUsos(feature) {
-            const cultivo = feature.properties.cultivo ? feature.properties.cultivo.trim().toLowerCase() : "";
-            const color = colorMap[cultivo] || 'gray';
-            return {
-                color: color,
-                fillOpacity: 0.5,
-                weight: 1
-            };
-        }
 
         function cargarGeoJSON(url, estilo, nombreCapa) {
             fetch(url)
@@ -139,10 +109,9 @@
                 .catch(error => console.error(`Error cargando ${nombreCapa}:`, error));
         }
 
-        // Cargar capas
         cargarGeoJSON("http://localhost:8000/Rutas.geojson", { color: '#FFA500', weight: 2 }, "Rutas");
-        cargarGeoJSON("http://localhost:8000/usos2.geojson", estiloUsos, "Usos 2");
-        cargarGeoJSON("http://localhost:8000/fincas.geojson", { color: '#000', weight: 2, fillOpacity: 0 }, "Fincas");
+        cargarGeoJSON("http://localhost:8000/usos2.geojson", { color: '#007F00', fillOpacity: 0.5 }, "Usos 2");
+        cargarGeoJSON("http://localhost:8000/fincas.geojson", { color: '#000000', weight: 2 }, "Fincas");
     </script>
 </body>
 </html>
