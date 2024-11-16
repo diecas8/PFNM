@@ -82,9 +82,8 @@
         L.control.layers(baseMaps, null, { collapsed: false }).addTo(map);
 
         var bounds = L.latLngBounds();
-        var usosLayer, usos2Layer, fincasLayer, rutasLayer;
+        var usos2Layer, fincasLayer, rutasLayer;
         var layerControl = L.control.layers(null, null, { collapsed: false }).addTo(map);
-        var chart;
 
         const colorMap = {
             'bosque de galería': '#006400',
@@ -115,26 +114,8 @@
             };
         }
 
-        // Cargar capa usos.geojson
-        fetch("https://raw.githubusercontent.com/tu-usuario/tu-repositorio/main/usos.geojson")
-            .then(response => response.json())
-            .then(data => {
-                usosLayer = L.geoJSON(data, {
-                    style: estiloUsos,
-                    onEachFeature: function(feature, layer) {
-                        const areaFormatted = parseFloat(feature.properties.has).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                        layer.bindPopup(`Cultivo: ${feature.properties.cultivo}<br>Área: ${areaFormatted} ha`);
-                    }
-                });
-                usosLayer.addTo(map);
-                layerControl.addOverlay(usosLayer, "Usos");
-                bounds.extend(usosLayer.getBounds());
-                map.fitBounds(bounds);
-            })
-            .catch(error => console.error("Error cargando usos.geojson:", error));
-
-        // Cargar capa usos2.geojson desde un servidor local
-        fetch("http://localhost:8000/usos2.geojson")
+        // Cargar capa usos2.geojson
+        fetch("E:/colab_pfnm/proyectov2/usos2.geojson")
             .then(response => response.json())
             .then(data => {
                 usos2Layer = L.geoJSON(data, {
@@ -151,8 +132,8 @@
             })
             .catch(error => console.error("Error cargando usos2.geojson:", error));
 
-        // Cargar capa fincasssss.geojson
-        fetch("fincasssss.geojson")
+        // Cargar capa fincas.geojson
+        fetch("E:/colab_pfnm/proyectov2/fincas.geojson")
             .then(response => response.json())
             .then(data => {
                 fincasLayer = L.geoJSON(data, { style: { color: '#000', weight: 2, fillOpacity: 0 } });
@@ -160,10 +141,10 @@
                 layerControl.addOverlay(fincasLayer, "Fincas");
                 bounds.extend(fincasLayer.getBounds());
             })
-            .catch(error => console.error("Error cargando fincasssss.geojson:", error));
+            .catch(error => console.error("Error cargando fincas.geojson:", error));
 
         // Cargar capa rutas.geojson
-        fetch("Rutas.geojson")
+        fetch("E:/colab_pfnm/proyectov2/Rutas.geojson")
             .then(response => response.json())
             .then(data => {
                 rutasLayer = L.geoJSON(data, { style: { color: '#FFA500', weight: 2 } });
