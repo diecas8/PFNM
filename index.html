@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <title>Geoportal</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
-    <script src="https://cdn.jsdelivr.net/npm/xlsx"></script> <!-- Para descarga a Excel -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx"></script>
     <style>
         body {
             margin: 0;
@@ -19,8 +19,6 @@
         .sidebar {
             width: 25%;
             background-color: #ffffff;
-            display: flex;
-            flex-direction: column;
             padding: 10px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             overflow-y: auto;
@@ -31,6 +29,8 @@
             padding: 10px;
             margin-bottom: 10px;
             border-radius: 5px;
+            position: sticky;
+            top: 0;
         }
         .chart-container {
             margin-top: 10px;
@@ -92,7 +92,7 @@
         const legendDiv = document.getElementById('legend');
 
         const colorMap = {
-            'bosque de galería': '#1b5e20', // Verde oscuro
+            'bosque de galería': '#1b5e20',
             'pasto limpio': '#43a047',
             'pasto enmalezado': '#f4511e',
             'palma aceite': '#fbc02d',
@@ -230,8 +230,8 @@
             XLSX.writeFile(wb, "Cultivos.xlsx");
         }
 
-        cargarGeoJSON('./Rutas.geojson', { color: '#FF6347', weight: 2 }, 'Rutas');
-        cargarGeoJSON('./fincas.geojson', { color: '#000', weight: 1 }, 'Fincas');
+        cargarGeoJSON('./Rutas.geojson', { color: '#FF0000', weight: 2 }, 'Rutas');
+        cargarGeoJSON('./fincas.geojson', { color: '#000000', weight: 1 }, 'Fincas');
         cargarCultivos('./Cultivos.geojson');
     </script>
 </body>
