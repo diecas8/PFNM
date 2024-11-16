@@ -55,7 +55,7 @@
         var bounds = L.latLngBounds();
         var layerControl = L.control.layers(null, null, { collapsed: false }).addTo(map);
 
-        // Colores para cultivos, incluyendo un mejor color para `Bosque de galería`
+        // Colores para cultivos
         const colorMap = {
             'bosque de galería': '#006400', // Verde oscuro
             'arroz': '#FFD700',
@@ -76,26 +76,29 @@
         };
 
         var fincaSelector = document.getElementById('fincaSelector');
+        var fincasAgregadas = new Set(); // Para evitar duplicados en el selector
 
         function cargarGeoJSON(url, estilo, nombreCapa, etiquetar = false) {
             fetch(url)
                 .then(response => response.json())
                 .then(data => {
+                    console.log(`Capa ${nombreCapa} cargada`, data);
                     var layer = L.geoJSON(data, {
                         style: estilo,
                         onEachFeature: function(feature, layer) {
                             if (feature.properties) {
-                                // Etiquetas personalizadas para usos2
+                                // Etiquetas personalizadas para `usos2`
                                 if (nombreCapa === "Usos 2") {
                                     const cultivo = feature.properties.cultivo || "Sin información";
-                                    const area = feature.properties.has ? feature.properties.has.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "N/A";
+                                    const area = feature.properties.has ? parseFloat(feature.properties.has).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "N/A";
                                     layer.bindPopup(`<strong>Cultivo:</strong> ${cultivo}<br><strong>Área:</strong> ${area} ha`);
 
-                                    // Agregar nombres de finca al selector
-                                    if (feature.properties.nombre_finca) {
+                                    // Agregar nombres de finca al selector (sin duplicados)
+                                    if (feature.properties.nom_finca_ && !fincasAgregadas.has(feature.properties.nom_finca_)) {
+                                        fincasAgregadas.add(feature.properties.nom_finca_);
                                         const option = document.createElement('option');
                                         option.value = JSON.stringify(layer.getBounds());
-                                        option.textContent = feature.properties.nombre_finca;
+                                        option.textContent = feature.properties.nom_finca_;
                                         fincaSelector.appendChild(option);
                                     }
                                 }
