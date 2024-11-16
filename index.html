@@ -5,12 +5,21 @@
     <title>Geoportal</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
-        #map { height: 600px; width: 75%; float: right; }
+        #map { height: 600px; width: 50%; float: left; }
         .sidebar {
             width: 25%;
             float: left;
             padding: 10px;
             background-color: #f8f9fa;
+            box-sizing: border-box;
+            height: 600px;
+            overflow-y: auto;
+        }
+        .summary-container {
+            width: 25%;
+            float: left;
+            padding: 10px;
+            background-color: #f1f1f1;
             box-sizing: border-box;
             height: 600px;
             overflow-y: auto;
@@ -39,6 +48,14 @@
             height: 300px;
             margin-top: 20px;
         }
+        .summary-detail {
+            font-size: 14px;
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #ffffff;
+            border: 1px solid #ddd;
+            line-height: 1.5;
+        }
     </style>
 </head>
 <body>
@@ -56,6 +73,10 @@
         </div>
     </div>
     <div id="map"></div>
+    <div class="summary-container">
+        <strong>Detalle de Cultivos</strong>
+        <div id="summary-detail" class="summary-detail"></div>
+    </div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -73,8 +94,13 @@
 
         // Esquema de colores para cultivos
         const colorMap = {
-            'bosque de galería': '#1b5e20' // Verde oscuro para "Bosque de galería"
+            'bosque de galería': '#1b5e20', // Verde oscuro específico
+            'palma aceite': '#ff9800',
+            'pasto enmalezado': '#e64a19',
+            'pasto limpio': '#0288d1',
+            'otros': '#9e9e9e' // Color genérico para cultivos no especificados
         };
+
         const defaultColors = [
             '#fdd835', '#0288d1', '#03a9f4', '#9e9e9e',
             '#6d4c41', '#43a047', '#795548', '#8bc34a',
@@ -84,6 +110,7 @@
 
         var fincaSelector = document.getElementById('fincaSelector');
         var summaryDiv = document.getElementById('summary');
+        var summaryDetailDiv = document.getElementById('summary-detail');
         var chartCanvas = document.getElementById('chart');
         var geojsonData, fincas = []; // Lista para almacenar códigos y nombres únicos
         var chart;
@@ -173,6 +200,7 @@
                 }
             });
 
+            // Actualizar resumen general
             summaryDiv.innerHTML = `
                 <strong>Código:</strong> ${selectedFinca}<br>
                 <strong>Nombre de la Finca:</strong> ${nombreFinca}<br>
@@ -180,6 +208,14 @@
                 <strong>Área Total:</strong> ${areaTotal.toFixed(2)} ha
             `;
 
+            // Actualizar detalle de cultivos
+            let detalleHTML = "";
+            Object.entries(cultivos).forEach(([cultivo, area]) => {
+                detalleHTML += `<strong>${cultivo}:</strong> ${area.toFixed(2)} ha<br>`;
+            });
+            summaryDetailDiv.innerHTML = detalleHTML;
+
+            // Generar gráfico de torta
             generarGrafico(cultivos, areaTotal);
             map.fitBounds(bounds);
         }
@@ -195,9 +231,9 @@
             chart = new Chart(chartCanvas, {
                 type: 'pie',
                 data: {
-                    labels: labels,
+                    labels,
                     datasets: [{
-                        data: data,
+                        data,
                         backgroundColor: backgroundColors
                     }]
                 },
@@ -207,8 +243,10 @@
                         tooltip: {
                             callbacks: {
                                 label: function(context) {
-                                    const index = context.dataIndex;
-                                    return `${labels[index]}: ${data[index]} ha (${((data[index] / areaTotal) * 100).toFixed(2)}%)`;
+                                    const label = context.label;
+                                    const value = context.raw;
+                                    const percentage = ((value / areaTotal) * 100).toFixed(2);
+                                    return `${label}: ${value.toFixed(2)} ha (${percentage}%)`;
                                 }
                             }
                         },
@@ -221,7 +259,7 @@
         // Cargar capas desde GeoJSON
         cargarGeoJSON('./Cultivos.geojson', function(feature) {
             const cultivo = feature.properties.cultivo || "otros";
-            const color = colorMap[cultivo] || '#D3D3D3';
+            const color = colorMap[cultivo] || '#9e9e9e';
             return { color: color, fillOpacity: 0.7, weight: 1 };
         }, "Cultivos");
     </script>
