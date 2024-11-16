@@ -139,6 +139,14 @@
             });
         }
 
+        function estiloUsos(feature) {
+            const cultivo = feature.properties.cultivo 
+                ? feature.properties.cultivo.trim().toLowerCase() 
+                : "otros"; // Valor predeterminado si no se encuentra cultivo
+            const color = colorMap[cultivo] || '#D3D3D3'; // Gris claro por defecto
+            return { color: color, fillOpacity: 0.7, weight: 1 };
+        }
+
         function centrarEnFinca() {
             const selectedFinca = fincaSelector.value;
             if (!selectedFinca || !geojsonData) return;
@@ -151,7 +159,9 @@
 
             geojsonData.features.forEach(feature => {
                 if (feature.properties.cod_finca === selectedFinca) {
-                    const cultivo = feature.properties.cultivo || "Sin información";
+                    const cultivo = feature.properties.cultivo 
+                        ? feature.properties.cultivo.trim().toLowerCase() 
+                        : "Sin información";
                     const area = parseFloat(feature.properties.has) || 0;
 
                     // Sumar el área total
@@ -181,10 +191,8 @@
                 <strong>Área Total:</strong> ${areaTotal.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ha
             `;
 
-            // Generar gráfico
             generarGrafico(cultivos);
 
-            // Centrar el mapa en la finca seleccionada
             map.fitBounds(bounds);
         }
 
@@ -217,18 +225,8 @@
 
         // Enlaces "raw" de GitHub
         const baseURL = "https://raw.githubusercontent.com/diecas8/PFNM/main/";
-        const rutasGeoJSON = `${baseURL}Rutas.geojson`;
         const usos2GeoJSON = `${baseURL}usos2.geojson`;
 
-        // Estilo para `usos2` con colores según el cultivo
-        function estiloUsos(feature) {
-            const cultivo = feature.properties.cultivo ? feature.properties.cultivo.trim().toLowerCase() : "";
-            const color = colorMap[cultivo] || '#D3D3D3';
-            return { color: color, fillOpacity: 0.7, weight: 1 };
-        }
-
-        // Cargar capas
-        cargarGeoJSON(rutasGeoJSON, { color: '#FF6347', weight: 2 }, "Rutas");
         cargarGeoJSON(usos2GeoJSON, estiloUsos, "Usos 2", true);
     </script>
 </body>
