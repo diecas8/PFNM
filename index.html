@@ -1,36 +1,216 @@
-<script>
-    var fincasAgregadas = new Set(); // Para evitar duplicados
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Geoportal</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <style>
+        #map { height: 600px; width: 75%; float: right; }
+        .sidebar {
+            width: 25%;
+            float: left;
+            padding: 10px;
+            background-color: #f8f9fa;
+            box-sizing: border-box;
+            height: 600px;
+            overflow-y: auto;
+        }
+        .logo {
+            width: 100px;
+            display: block;
+            margin: 0 auto 10px;
+        }
+        .filter {
+            background: white;
+            padding: 10px;
+            color: #333;
+            font-size: 14px;
+            margin-top: 10px;
+            line-height: 1.5;
+        }
+        .summary {
+            margin-top: 20px;
+            background: white;
+            padding: 10px;
+            font-size: 14px;
+        }
+        .chart-container {
+            width: 100%;
+            height: 300px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="sidebar">
+        <img src="CBS.png" class="logo" alt="Logo">
+        <div class="filter">
+            <strong>Seleccionar Finca</strong><br>
+            <select id="fincaSelector" onchange="centrarEnFinca()">
+                <option value="">Seleccione una finca</option>
+            </select>
+        </div>
+        <div id="summary" class="summary"></div>
+        <div class="chart-container">
+            <canvas id="chart"></canvas>
+        </div>
+    </div>
+    <div id="map"></div>
 
-    function cargarGeoJSON(url, estilo, nombreCapa, etiquetar = false) {
-        fetch(url)
-            .then(response => response.json())
-            .then(data => {
-                geojsonData = data;
-                var layer = L.geoJSON(data, {
-                    style: estilo,
-                    onEachFeature: function(feature, layer) {
-                        if (feature.properties) {
-                            const codFinca = feature.properties.cod_finca || "N/A";
-                            const nombreFinca = feature.properties.nom_finca_ || "Sin nombre";
-                            const fincaLabel = `${codFinca} - ${nombreFinca}`;
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Inicializar el mapa
+        var map = L.map('map').setView([5.40139, -71.05203], 10);
 
-                            if (etiquetar && !fincasAgregadas.has(fincaLabel)) {
-                                // Agregar solo si no está en el conjunto
-                                fincasAgregadas.add(fincaLabel);
+        var osmBase = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
 
-                                const option = document.createElement('option');
-                                option.value = codFinca;
-                                option.textContent = fincaLabel;
-                                fincaSelector.appendChild(option);
+        var bounds = L.latLngBounds();
+        var layerControl = L.control.layers(null, null, { collapsed: false }).addTo(map);
+
+        const colorMap = {
+            'bosque de galería': '#006400', // Verde oscuro
+            'arroz': '#FFD700',
+            'río': '#1E90FF',
+            'lago': '#4682B4',
+            'estero': '#00CED1',
+            'humedales': '#98FB98',
+            'pasto enmalezado': '#9ACD32',
+            'pasto limpio': '#32CD32',
+            'pasto arbolado': '#6B8E23',
+            'cacao': '#8B4513',
+            'algarrobo': '#A0522D',
+            'papaya': '#FF6347',
+            'maíz': '#FFA500',
+            'café': '#8B0000',
+            'otros': '#808080',
+            'palma aceite': '#D2691E'
+        };
+
+        var fincaSelector = document.getElementById('fincaSelector');
+        var summaryDiv = document.getElementById('summary');
+        var chartCanvas = document.getElementById('chart');
+        var fincas = new Map(); // Usamos un mapa para evitar duplicados por `cod_finca`
+        var geojsonData;
+        var chart;
+
+        function cargarGeoJSON(url, estilo, nombreCapa, etiquetar = false) {
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    geojsonData = data;
+                    var layer = L.geoJSON(data, {
+                        style: estilo,
+                        onEachFeature: function(feature, layer) {
+                            if (feature.properties) {
+                                const codFinca = feature.properties.cod_finca || "N/A";
+                                const nombreFinca = feature.properties.nom_finca_ || "Sin nombre";
+                                const fincaLabel = `${codFinca} - ${nombreFinca}`;
+
+                                if (etiquetar && !fincas.has(codFinca)) {
+                                    // Agregar finca al mapa para evitar duplicados
+                                    fincas.set(codFinca, fincaLabel);
+
+                                    const option = document.createElement('option');
+                                    option.value = codFinca;
+                                    option.textContent = fincaLabel;
+                                    fincaSelector.appendChild(option);
+                                }
                             }
                         }
+                    });
+                    layer.addTo(map);
+                    layerControl.addOverlay(layer, nombreCapa);
+                    bounds.extend(layer.getBounds());
+                    map.fitBounds(bounds);
+                })
+                .catch(error => console.error(`Error cargando ${nombreCapa}:`, error));
+        }
+
+        function centrarEnFinca() {
+            const selectedFinca = fincaSelector.value;
+            if (!selectedFinca || !geojsonData) return;
+
+            let areaTotal = 0;
+            let propietario = "N/A";
+            const cultivos = {};
+
+            const bounds = L.latLngBounds();
+
+            geojsonData.features.forEach(feature => {
+                if (feature.properties.cod_finca === selectedFinca) {
+                    const cultivo = feature.properties.cultivo 
+                        ? feature.properties.cultivo.trim().toLowerCase() 
+                        : "Sin información";
+                    const area = parseFloat(feature.properties.has) || 0;
+
+                    // Sumar el área total
+                    areaTotal += area;
+
+                    // Obtener el propietario
+                    propietario = feature.properties.propietari || propietario;
+
+                    // Sumar áreas por cultivo
+                    if (!cultivos[cultivo]) {
+                        cultivos[cultivo] = 0;
                     }
-                });
-                layer.addTo(map);
-                layerControl.addOverlay(layer, nombreCapa);
-                bounds.extend(layer.getBounds());
-                map.fitBounds(bounds);
-            })
-            .catch(error => console.error(`Error cargando ${nombreCapa}:`, error));
-    }
-</script>
+                    cultivos[cultivo] += area;
+
+                    // Extender los bounds para centrar el mapa
+                    if (feature.geometry) {
+                        bounds.extend(L.geoJSON(feature).getBounds());
+                    }
+                }
+            });
+
+            // Mostrar resumen
+            const nombreFinca = fincaSelector.options[fincaSelector.selectedIndex].text.split(" - ")[1];
+            summaryDiv.innerHTML = `
+                <strong>Nombre de la Finca:</strong> ${nombreFinca}<br>
+                <strong>Propietario:</strong> ${propietario}<br>
+                <strong>Área Total:</strong> ${areaTotal.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ha
+            `;
+
+            generarGrafico(cultivos);
+
+            map.fitBounds(bounds);
+        }
+
+        function generarGrafico(cultivos) {
+            if (chart) {
+                chart.destroy(); // Eliminar gráfico previo si existe
+            }
+
+            const labels = Object.keys(cultivos).sort();
+            const data = labels.map(cultivo => cultivos[cultivo]);
+            const backgroundColors = labels.map(cultivo => colorMap[cultivo] || '#D3D3D3');
+
+            chart = new Chart(chartCanvas, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: backgroundColors
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'top' }
+                    }
+                }
+            });
+        }
+
+        // Enlaces "raw" de GitHub
+        const baseURL = "https://raw.githubusercontent.com/diecas8/PFNM/main/";
+        const usos2GeoJSON = `${baseURL}usos2.geojson`;
+
+        cargarGeoJSON(usos2GeoJSON, estiloUsos, "Usos 2", true);
+    </script>
+</body>
+</html>
