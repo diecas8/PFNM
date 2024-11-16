@@ -93,12 +93,16 @@
                                     const area = feature.properties.has ? parseFloat(feature.properties.has).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "N/A";
                                     layer.bindPopup(`<strong>Cultivo:</strong> ${cultivo}<br><strong>Área:</strong> ${area} ha`);
 
-                                    // Agregar nombres de finca al selector (sin duplicados)
-                                    if (feature.properties.nom_finca_ && !fincasAgregadas.has(feature.properties.nom_finca_)) {
-                                        fincasAgregadas.add(feature.properties.nom_finca_);
+                                    // Agregar códigos y nombres de finca al selector (sin duplicados)
+                                    const codFinca = feature.properties.cod_finca || "N/A";
+                                    const nombreFinca = feature.properties.nom_finca_ || "Sin nombre";
+                                    const fincaLabel = `${codFinca} - ${nombreFinca}`;
+
+                                    if (!fincasAgregadas.has(fincaLabel)) {
+                                        fincasAgregadas.add(fincaLabel);
                                         const option = document.createElement('option');
                                         option.value = JSON.stringify(layer.getBounds());
-                                        option.textContent = feature.properties.nom_finca_;
+                                        option.textContent = fincaLabel;
                                         fincaSelector.appendChild(option);
                                     }
                                 }
