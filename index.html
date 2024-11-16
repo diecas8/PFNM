@@ -104,6 +104,7 @@
             return response.json();
         })
         .then(data => {
+            geojsonData = data; // Guardamos los datos para referencia
             var layer = L.geoJSON(data, {
                 style: estilo,
                 onEachFeature: function (feature, layer) {
@@ -111,14 +112,11 @@
                     const nombreFinca = feature.properties.nom_finca_ || "Sin nombre";
                     const fincaLabel = `${codFinca} - ${nombreFinca}`;
 
-                    // Asegurarse de que cada finca aparezca solo una vez en el listado desplegable
-                    if (etiquetar && !fincas.has(codFinca)) {
-                        fincas.set(codFinca, fincaLabel);
-
-                        // Agregar la finca al listado desplegable
+                    // Evitar duplicados en el listado desplegable
+                    if (etiquetar && !Array.from(fincaSelector.options).some(option => option.textContent === fincaLabel)) {
                         const option = document.createElement('option');
-                        option.value = codFinca;
-                        option.textContent = fincaLabel;
+                        option.value = codFinca; // Usamos el `cod_finca` como valor
+                        option.textContent = fincaLabel; // Mostramos `cod_finca - nom_finca_` en el texto
                         fincaSelector.appendChild(option);
                     }
 
@@ -139,7 +137,6 @@
         })
         .catch(error => console.error(`Error cargando ${nombreCapa}:`, error));
 }
-
 
         // Centrar en finca seleccionada
         function centrarEnFinca() {
