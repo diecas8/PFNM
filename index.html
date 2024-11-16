@@ -39,6 +39,24 @@
             height: 300px;
             margin-top: 20px;
         }
+        .legend {
+            margin-top: 20px;
+            padding: 10px;
+            background: white;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+            border: 1px solid #ccc;
+        }
     </style>
 </head>
 <body>
@@ -54,6 +72,7 @@
         <div class="chart-container">
             <canvas id="chart"></canvas>
         </div>
+        <div id="legend" class="legend"></div>
     </div>
     <div id="map"></div>
 
@@ -71,18 +90,21 @@
         var bounds = L.latLngBounds();
         var layerControl = L.control.layers(null, null, { collapsed: false }).addTo(map);
 
-        // Esquema dinámico de colores para cultivos
-        const colorMap = {};
+        // Esquema de colores para cultivos
+        const colorMap = {
+            'bosque de galería': '#1b5e20' // Verde fijo para "Bosque de galería"
+        };
         const defaultColors = [
-            '#1b5e20', '#fdd835', '#0288d1', '#03a9f4', '#9e9e9e',
-            '#6d4c41', '#43a047', '#795548', '#8bc34a', '#e64a19',
-            '#ff9800', '#d32f2f', '#3f51b5'
+            '#fdd835', '#0288d1', '#03a9f4', '#9e9e9e',
+            '#6d4c41', '#43a047', '#795548', '#8bc34a',
+            '#e64a19', '#ff9800', '#d32f2f', '#3f51b5'
         ];
         let colorIndex = 0;
 
         var fincaSelector = document.getElementById('fincaSelector');
         var summaryDiv = document.getElementById('summary');
         var chartCanvas = document.getElementById('chart');
+        var legendDiv = document.getElementById('legend');
         var geojsonData, fincas = []; // Lista para almacenar códigos y nombres únicos
         var chart;
 
@@ -134,11 +156,34 @@
                         });
                     }
 
+                    // Actualizar leyenda
+                    actualizarLeyenda();
+
                     layer.addTo(map);
                     layerControl.addOverlay(layer, nombreCapa);
                     bounds.extend(layer.getBounds());
                 })
                 .catch(error => console.error(`Error cargando ${nombreCapa}:`, error));
+        }
+
+        // Actualizar la leyenda con los colores de los cultivos
+        function actualizarLeyenda() {
+            legendDiv.innerHTML = "<strong>Leyenda:</strong>";
+            Object.entries(colorMap).forEach(([cultivo, color]) => {
+                const legendItem = document.createElement('div');
+                legendItem.className = 'legend-item';
+
+                const colorBox = document.createElement('div');
+                colorBox.className = 'legend-color';
+                colorBox.style.backgroundColor = color;
+
+                const label = document.createElement('span');
+                label.textContent = cultivo;
+
+                legendItem.appendChild(colorBox);
+                legendItem.appendChild(label);
+                legendDiv.appendChild(legendItem);
+            });
         }
 
         // Función para centrar en la finca seleccionada
@@ -173,7 +218,6 @@
                 }
             });
 
-            // Actualizar el resumen con el nombre de la finca
             summaryDiv.innerHTML = `
                 <strong>Código:</strong> ${selectedFinca}<br>
                 <strong>Nombre de la Finca:</strong> ${nombreFinca}<br>
@@ -185,13 +229,12 @@
             map.fitBounds(bounds);
         }
 
-        // Generar gráfico de torta con colores consistentes
+        // Generar gráfico de torta
         function generarGrafico(cultivos, areaTotal) {
             if (chart) chart.destroy();
 
             const labels = Object.keys(cultivos).sort();
             const data = labels.map(cultivo => cultivos[cultivo]);
-            const percentages = data.map(area => ((area / areaTotal) * 100).toFixed(2));
             const backgroundColors = labels.map(cultivo => colorMap[cultivo]);
 
             chart = new Chart(chartCanvas, {
@@ -206,15 +249,15 @@
                 options: {
                     responsive: true,
                     plugins: {
+                        legend: { display: false },
                         tooltip: {
                             callbacks: {
                                 label: function(context) {
                                     const index = context.dataIndex;
-                                    return `${labels[index]}: ${data[index]} ha (${percentages[index]}%)`;
+                                    return `${labels[index]}: ${data[index]} ha (${((data[index] / areaTotal) * 100).toFixed(2)}%)`;
                                 }
                             }
-                        },
-                        legend: { position: 'top' }
+                        }
                     }
                 }
             });
