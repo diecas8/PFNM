@@ -5,130 +5,225 @@
     <title>Geoportal</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
     <style>
-        body {
-            margin: 0;
-            height: 100vh;
-            display: flex;
-            overflow: hidden;
-        }
-        #map {
-            width: 100%;
-            height: 100%;
-        }
-        .summary-container {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            background: rgba(255, 255, 255, 0.95);
-            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
+        #map { height: 600px; width: 75%; float: right; }
+        .sidebar {
+            width: 25%;
+            float: left;
             padding: 10px;
-            border-radius: 8px;
-            font-size: 14px;
-            line-height: 1.5;
-            max-width: 300px;
-            z-index: 1000;
+            background-color: #f8f9fa;
+            box-sizing: border-box;
+            height: 600px;
+            overflow-y: auto;
         }
-        .summary-container strong {
+        .logo {
+            width: 100px;
             display: block;
-            margin-bottom: 5px;
+            margin: 0 auto 10px;
         }
-        .summary-container button {
+        .filter {
+            background: white;
+            padding: 10px;
+            color: #333;
+            font-size: 14px;
             margin-top: 10px;
-            padding: 5px 10px;
-            background-color: #0288d1;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
+            line-height: 1.5;
         }
-        .summary-container button:hover {
-            background-color: #0277bd;
+        .summary {
+            margin-top: 20px;
+            background: white;
+            padding: 10px;
+            font-size: 14px;
         }
         .chart-container {
-            margin-top: 10px;
-            height: 150px;
+            width: 100%;
+            height: 300px;
+            margin-top: 20px;
         }
     </style>
 </head>
 <body>
-    <div id="map"></div>
-    <div class="summary-container" id="summary-container">
-        <strong>Detalle de Cultivos</strong>
-        <div id="summary-detail"></div>
-        <button onclick="descargarResumen()">Descargar Resumen</button>
+    <div class="sidebar">
+        <img src="CBS.png" class="logo" alt="Logo">
+        <div class="filter">
+            <strong>Seleccionar Finca</strong><br>
+            <select id="fincaSelector" onchange="centrarEnFinca()">
+                <option value="">Seleccione una finca</option>
+            </select>
+        </div>
+        <div id="summary" class="summary"></div>
+        <div class="chart-container">
+            <canvas id="chart"></canvas>
+        </div>
     </div>
+    <div id="map"></div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         // Inicializar el mapa
         var map = L.map('map').setView([5.40139, -71.05203], 10);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+
+        var osmBase = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 18,
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
-        var geojsonData, chart;
-        const summaryDetailDiv = document.getElementById('summary-detail');
+        var bounds = L.latLngBounds();
+        var layerControl = L.control.layers(null, null, { collapsed: false }).addTo(map);
 
-        // Colores predefinidos para cultivos
+        // Esquema de colores para cultivos
         const colorMap = {
-            'bosque de galería': '#1b5e20', // Verde oscuro
-            'pasto limpio': '#43a047',      // Verde brillante
-            'pasto enmalezado': '#f4511e', // Naranja rojizo
-            'palma aceite': '#fbc02d',     // Amarillo
-            'infraestructura': '#757575',  // Gris oscuro
-            'otros': '#8e44ad'             // Morado
+            'bosque de galería': '#1b5e20' // Verde oscuro para "Bosque de galería"
         };
+        const defaultColors = [
+            '#fdd835', '#0288d1', '#03a9f4', '#9e9e9e',
+            '#6d4c41', '#43a047', '#795548', '#8bc34a',
+            '#e64a19', '#ff9800', '#d32f2f', '#3f51b5'
+        ];
+        let colorIndex = 0;
 
-        // Cargar GeoJSON con colores aplicados
-        function cargarGeoJSON(url) {
+        var fincaSelector = document.getElementById('fincaSelector');
+        var summaryDiv = document.getElementById('summary');
+        var chartCanvas = document.getElementById('chart');
+        var geojsonData, fincas = []; // Lista para almacenar códigos y nombres únicos
+        var chart;
+
+        // Función para cargar capas GeoJSON
+        function cargarGeoJSON(url, estilo, nombreCapa) {
             fetch(url)
-                .then(res => res.json())
+                .then(response => {
+                    if (!response.ok) throw new Error(`Error al cargar ${nombreCapa}`);
+                    return response.json();
+                })
                 .then(data => {
                     geojsonData = data;
+                    var layer = L.geoJSON(data, {
+                        style: estilo,
+                        onEachFeature: function (feature, layer) {
+                            const codFinca = feature.properties.cod_finca || "N/A";
+                            const nomFinca = feature.properties.nom_finca_ || "Sin nombre";
 
-                    L.geoJSON(data, {
-                        style: feature => {
-                            const cultivo = feature.properties.cultivo || 'otros';
-                            return {
-                                color: colorMap[cultivo] || '#000000',
-                                fillOpacity: 0.7,
-                                weight: 1
-                            };
-                        },
-                        onEachFeature: (feature, layer) => {
-                            const cultivo = feature.properties.cultivo || 'Sin información';
+                            // Asignar color dinámico si no existe
+                            const cultivo = feature.properties.cultivo || "otros";
+                            if (!colorMap[cultivo]) {
+                                colorMap[cultivo] = defaultColors[colorIndex % defaultColors.length];
+                                colorIndex++;
+                            }
+
+                            // Agregar código y nombre únicos al listado
+                            if (codFinca !== "N/A" && nomFinca !== "Sin nombre") {
+                                const fincaEntry = `${codFinca} - ${nomFinca}`;
+                                if (!fincas.includes(fincaEntry)) {
+                                    fincas.push(fincaEntry);
+                                }
+                            }
+
+                            // Añadir popups para cultivos
                             const area = parseFloat(feature.properties.has || 0).toFixed(2);
                             layer.bindPopup(`Cultivo: ${cultivo}<br>Área: ${area} ha`);
                         }
-                    }).addTo(map);
+                    });
+
+                    // Actualizar la lista desplegable
+                    fincas.sort(); // Ordenar alfabéticamente
+                    fincaSelector.innerHTML = '<option value="">Seleccione una finca</option>';
+                    fincas.forEach(entry => {
+                        const option = document.createElement('option');
+                        option.value = entry.split(' - ')[0]; // Usar solo el código como valor
+                        option.textContent = entry; // Mostrar "código - nombre"
+                        fincaSelector.appendChild(option);
+                    });
+
+                    layer.addTo(map);
+                    layerControl.addOverlay(layer, nombreCapa);
+                    bounds.extend(layer.getBounds());
                 })
-                .catch(err => console.error('Error al cargar GeoJSON:', err));
+                .catch(error => console.error(`Error cargando ${nombreCapa}:`, error));
         }
 
-        // Actualizar resumen flotante
-        function actualizarResumen(cultivos, areaTotal) {
-            let detalleHTML = '';
-            Object.entries(cultivos).forEach(([cultivo, area]) => {
-                detalleHTML += `<p>${cultivo}: ${area.toFixed(2)} ha</p>`;
+        // Función para centrar en la finca seleccionada
+        function centrarEnFinca() {
+            const selectedFinca = fincaSelector.value;
+            if (!selectedFinca || !geojsonData) return;
+
+            let areaTotal = 0;
+            let propietario = "N/A";
+            let nombreFinca = "N/A";
+            const cultivos = {};
+
+            const bounds = L.latLngBounds();
+
+            geojsonData.features.forEach(feature => {
+                if (feature.properties.cod_finca === selectedFinca) {
+                    const cultivo = feature.properties.cultivo || "Sin información";
+                    const area = parseFloat(feature.properties.has) || 0;
+
+                    areaTotal += area;
+                    propietario = feature.properties.propietari || propietario;
+                    nombreFinca = feature.properties.nom_finca_ || nombreFinca;
+
+                    if (!cultivos[cultivo]) {
+                        cultivos[cultivo] = 0;
+                    }
+                    cultivos[cultivo] += area;
+
+                    if (feature.geometry) {
+                        bounds.extend(L.geoJSON(feature).getBounds());
+                    }
+                }
             });
-            detalleHTML += `<p><strong>Total:</strong> ${areaTotal.toFixed(2)} ha</p>`;
-            summaryDetailDiv.innerHTML = detalleHTML;
+
+            summaryDiv.innerHTML = `
+                <strong>Código:</strong> ${selectedFinca}<br>
+                <strong>Nombre de la Finca:</strong> ${nombreFinca}<br>
+                <strong>Propietario:</strong> ${propietario}<br>
+                <strong>Área Total:</strong> ${areaTotal.toFixed(2)} ha
+            `;
+
+            generarGrafico(cultivos, areaTotal);
+            map.fitBounds(bounds);
         }
 
-        // Descargar resumen como archivo de texto
-        function descargarResumen() {
-            const detalle = summaryDetailDiv.innerText;
-            const blob = new Blob([detalle], { type: 'text/plain' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = 'resumen_cultivos.txt';
-            link.click();
+        // Generar gráfico de torta
+        function generarGrafico(cultivos, areaTotal) {
+            if (chart) chart.destroy();
+
+            const labels = Object.keys(cultivos).sort();
+            const data = labels.map(cultivo => cultivos[cultivo]);
+            const backgroundColors = labels.map(cultivo => colorMap[cultivo]);
+
+            chart = new Chart(chartCanvas, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: backgroundColors
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const index = context.dataIndex;
+                                    return `${labels[index]}: ${data[index]} ha (${((data[index] / areaTotal) * 100).toFixed(2)}%)`;
+                                }
+                            }
+                        },
+                        legend: { position: 'top' }
+                    }
+                }
+            });
         }
 
-        // Cargar cultivos
-        cargarGeoJSON('./Cultivos.geojson');
+        // Cargar capas desde GeoJSON
+        cargarGeoJSON('./Cultivos.geojson', function(feature) {
+            const cultivo = feature.properties.cultivo || "otros";
+            const color = colorMap[cultivo] || '#D3D3D3';
+            return { color: color, fillOpacity: 0.7, weight: 1 };
+        }, "Cultivos");
     </script>
 </body>
 </html>
