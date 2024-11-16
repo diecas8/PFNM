@@ -93,7 +93,7 @@
         var fincaSelector = document.getElementById('fincaSelector');
         var summaryDiv = document.getElementById('summary');
         var chartCanvas = document.getElementById('chart');
-        var fincasAgregadas = new Set();
+        var fincas = []; // Almacenamos las fincas para ordenarlas luego
         var geojsonData;
         var chart;
 
@@ -110,12 +110,8 @@
                                 const nombreFinca = feature.properties.nom_finca_ || "Sin nombre";
                                 const fincaLabel = `${codFinca} - ${nombreFinca}`;
 
-                                if (etiquetar && !fincasAgregadas.has(fincaLabel)) {
-                                    fincasAgregadas.add(fincaLabel);
-                                    const option = document.createElement('option');
-                                    option.value = codFinca; // Usamos `cod_finca` para filtrar
-                                    option.textContent = fincaLabel;
-                                    fincaSelector.appendChild(option);
+                                if (etiquetar) {
+                                    fincas.push({ codFinca, fincaLabel });
                                 }
                             }
                         }
@@ -124,8 +120,23 @@
                     layerControl.addOverlay(layer, nombreCapa);
                     bounds.extend(layer.getBounds());
                     map.fitBounds(bounds);
+
+                    if (etiquetar) {
+                        cargarFincasOrdenadas();
+                    }
                 })
                 .catch(error => console.error(`Error cargando ${nombreCapa}:`, error));
+        }
+
+        function cargarFincasOrdenadas() {
+            // Ordenar fincas alfabéticamente
+            fincas.sort((a, b) => a.codFinca.localeCompare(b.codFinca));
+            fincas.forEach(finca => {
+                const option = document.createElement('option');
+                option.value = finca.codFinca;
+                option.textContent = finca.fincaLabel;
+                fincaSelector.appendChild(option);
+            });
         }
 
         function centrarEnFinca() {
@@ -182,8 +193,8 @@
                 chart.destroy(); // Eliminar gráfico previo si existe
             }
 
-            const labels = Object.keys(cultivos);
-            const data = Object.values(cultivos);
+            const labels = Object.keys(cultivos).sort();
+            const data = labels.map(cultivo => cultivos[cultivo]);
             const backgroundColors = labels.map(cultivo => colorMap[cultivo] || '#D3D3D3');
 
             chart = new Chart(chartCanvas, {
