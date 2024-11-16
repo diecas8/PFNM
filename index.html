@@ -39,6 +39,21 @@
         .chart-container {
             margin-top: 20px;
         }
+        .legend {
+            margin-top: 20px;
+            font-size: 12px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 5px;
+        }
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            margin-right: 5px;
+            border: 1px solid #000;
+        }
     </style>
 </head>
 <body>
@@ -53,6 +68,9 @@
         <div id="summary" class="summary"></div>
         <div class="chart-container">
             <canvas id="chart"></canvas>
+        </div>
+        <div class="legend" id="legend">
+            <strong>Colores de Cultivos:</strong>
         </div>
     </div>
     <div id="map"></div>
@@ -70,14 +88,18 @@
         const fincaSelector = document.getElementById('fincaSelector');
         const summaryDiv = document.getElementById('summary');
         const chartCanvas = document.getElementById('chart');
+        const legendDiv = document.getElementById('legend');
+
         const colorMap = {
-            'bosque de galería': '#1b5e20', // Verde oscuro
-            'pasto limpio': '#43a047',      // Verde brillante
-            'pasto enmalezado': '#f4511e', // Naranja rojizo
-            'palma aceite': '#fbc02d',     // Amarillo
-            'infraestructura': '#757575',  // Gris oscuro
-            'otros': '#8e44ad'             // Morado
+            'bosque de galería': '#1b5e20',
+            'pasto limpio': '#43a047',
+            'pasto enmalezado': '#f4511e',
+            'palma aceite': '#fbc02d',
+            'infraestructura': '#757575',
+            'otros': '#8e44ad'
         };
+
+        const defaultColors = ['#fdd835', '#0288d1', '#03a9f4', '#6d4c41', '#ff5722'];
         let geojsonData, chart;
 
         // Cargar GeoJSON
@@ -97,7 +119,10 @@
             const layer = L.geoJSON(data, {
                 style: feature => {
                     const cultivo = feature.properties.cultivo || 'otros';
-                    return { color: colorMap[cultivo] || '#000', fillOpacity: 0.7, weight: 1 };
+                    if (!colorMap[cultivo]) {
+                        colorMap[cultivo] = defaultColors.pop() || '#000000';
+                    }
+                    return { color: colorMap[cultivo], fillOpacity: 0.7, weight: 1 };
                 },
                 onEachFeature: (feature, layer) => {
                     const codFinca = feature.properties.cod_finca || "N/A";
@@ -115,9 +140,18 @@
             fincaSelector.innerHTML = '<option value="">Seleccione una finca</option>';
             Array.from(fincas).sort().forEach(finca => {
                 const option = document.createElement('option');
-                option.value = finca.split(' - ')[0]; // Usar código como valor
-                option.textContent = finca; // Mostrar "código - nombre"
+                option.value = finca.split(' - ')[0];
+                option.textContent = finca;
                 fincaSelector.appendChild(option);
+            });
+
+            // Actualizar leyenda
+            legendDiv.innerHTML = '<strong>Colores de Cultivos:</strong>';
+            Object.keys(colorMap).forEach(cultivo => {
+                const item = document.createElement('div');
+                item.className = 'legend-item';
+                item.innerHTML = `<div class="legend-color" style="background:${colorMap[cultivo]}"></div>${cultivo}`;
+                legendDiv.appendChild(item);
             });
         }
 
