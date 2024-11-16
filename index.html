@@ -175,40 +175,40 @@
             map.fitBounds(bounds);
         }
 
-        // Generar gráfico de torta
-        function generarGrafico(cultivos, areaTotal) {
-            if (chart) chart.destroy();
+       // Generar gráfico de torta
+function generarGrafico(cultivos, areaTotal) {
+    if (chart) chart.destroy();
 
-            const labels = Object.keys(cultivos).sort();
-            const data = labels.map(cultivo => cultivos[cultivo]);
-            const percentages = data.map(area => ((area / areaTotal) * 100).toFixed(2));
-            const backgroundColors = labels.map(cultivo => colorMap[cultivo] || '#D3D3D3');
+    const labels = Object.keys(cultivos).sort(); // Cultivos ordenados alfabéticamente
+    const data = labels.map(cultivo => cultivos[cultivo]); // Áreas por cultivo
+    const percentages = data.map(area => ((area / areaTotal) * 100).toFixed(2)); // Porcentajes
+    const backgroundColors = labels.map(cultivo => colorMap[cultivo] || '#D3D3D3'); // Colores asociados
 
-            chart = new Chart(chartCanvas, {
-                type: 'pie',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: data,
-                        backgroundColor: backgroundColors
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const index = context.dataIndex;
-                                    return `${labels[index]}: ${data[index]} ha (${percentages[index]}%)`;
-                                }
-                            }
-                        },
-                        legend: { position: 'top' }
+    chart = new Chart(chartCanvas, {
+        type: 'pie',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: backgroundColors // Usar los mismos colores del mapa
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const index = context.dataIndex;
+                            return `${labels[index]}: ${data[index]} ha (${percentages[index]}%)`;
+                        }
                     }
-                }
-            });
+                },
+                legend: { position: 'top' }
+            }
         }
+    });
+}
 
         // Cargar capas desde GeoJSON
         const baseURL = "https://raw.githubusercontent.com/diecas8/PFNM/main/";
