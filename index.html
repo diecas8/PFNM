@@ -96,12 +96,11 @@
         var geojsonData, fincas = new Map();
         var chart;
 
-        // Cargar los GeoJSON
+        // Cargar GeoJSON
         function cargarGeoJSON(url, estilo, nombreCapa, etiquetar = false) {
             fetch(url)
                 .then(response => response.json())
                 .then(data => {
-                    geojsonData = data;
                     var layer = L.geoJSON(data, {
                         style: estilo,
                         onEachFeature: function(feature, layer) {
@@ -118,7 +117,7 @@
                                 fincaSelector.appendChild(option);
                             }
 
-                            // Etiquetas emergentes para el uso del suelo
+                            // Etiquetas emergentes para usos del suelo
                             if (feature.properties.cultivo) {
                                 const cultivo = feature.properties.cultivo;
                                 const area = parseFloat(feature.properties.has).toLocaleString('es-ES', {
@@ -132,7 +131,6 @@
                     layer.addTo(map);
                     layerControl.addOverlay(layer, nombreCapa);
                     bounds.extend(layer.getBounds());
-                    map.fitBounds(bounds);
                 })
                 .catch(error => console.error(`Error cargando ${nombreCapa}:`, error));
         }
@@ -150,9 +148,7 @@
 
             geojsonData.features.forEach(feature => {
                 if (feature.properties.cod_finca === selectedFinca) {
-                    const cultivo = feature.properties.cultivo 
-                        ? feature.properties.cultivo.trim().toLowerCase() 
-                        : "Sin información";
+                    const cultivo = feature.properties.cultivo || "Sin información";
                     const area = parseFloat(feature.properties.has) || 0;
 
                     areaTotal += area;
@@ -203,11 +199,15 @@
             });
         }
 
-        // URLs de los GeoJSON
+        // Cargar capas desde GeoJSON
         const baseURL = "https://raw.githubusercontent.com/diecas8/PFNM/main/";
         cargarGeoJSON(`${baseURL}Rutas.geojson`, { color: '#FF6347', weight: 2 }, "Rutas");
         cargarGeoJSON(`${baseURL}fincas.geojson`, { color: '#000000', weight: 1 }, "Fincas", true);
-        cargarGeoJSON(`${baseURL}usos2.geojson`, estiloUsos, "Usos 2", true);
+        cargarGeoJSON(`${baseURL}usos2.geojson`, function(feature) {
+            const cultivo = feature.properties.cultivo ? feature.properties.cultivo.trim().toLowerCase() : "otros";
+            const color = colorMap[cultivo] || '#D3D3D3';
+            return { color: color, fillOpacity: 0.7, weight: 1 };
+        }, "Usos 2", true);
     </script>
 </body>
 </html>
