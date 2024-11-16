@@ -99,7 +99,10 @@
 
         function cargarGeoJSON(url, estilo, nombreCapa, etiquetar = false) {
             fetch(url)
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) throw new Error("No se pudo cargar el archivo GeoJSON");
+                    return response.json();
+                })
                 .then(data => {
                     geojsonData = data;
                     var layer = L.geoJSON(data, {
@@ -111,7 +114,6 @@
                                 const fincaLabel = `${codFinca} - ${nombreFinca}`;
 
                                 if (etiquetar && !fincas.has(codFinca)) {
-                                    // Agregar finca al mapa para evitar duplicados
                                     fincas.set(codFinca, fincaLabel);
 
                                     const option = document.createElement('option');
@@ -130,80 +132,12 @@
                 .catch(error => console.error(`Error cargando ${nombreCapa}:`, error));
         }
 
-        function centrarEnFinca() {
-            const selectedFinca = fincaSelector.value;
-            if (!selectedFinca || !geojsonData) return;
-
-            let areaTotal = 0;
-            let propietario = "N/A";
-            const cultivos = {};
-
-            const bounds = L.latLngBounds();
-
-            geojsonData.features.forEach(feature => {
-                if (feature.properties.cod_finca === selectedFinca) {
-                    const cultivo = feature.properties.cultivo 
-                        ? feature.properties.cultivo.trim().toLowerCase() 
-                        : "Sin información";
-                    const area = parseFloat(feature.properties.has) || 0;
-
-                    // Sumar el área total
-                    areaTotal += area;
-
-                    // Obtener el propietario
-                    propietario = feature.properties.propietari || propietario;
-
-                    // Sumar áreas por cultivo
-                    if (!cultivos[cultivo]) {
-                        cultivos[cultivo] = 0;
-                    }
-                    cultivos[cultivo] += area;
-
-                    // Extender los bounds para centrar el mapa
-                    if (feature.geometry) {
-                        bounds.extend(L.geoJSON(feature).getBounds());
-                    }
-                }
-            });
-
-            // Mostrar resumen
-            const nombreFinca = fincaSelector.options[fincaSelector.selectedIndex].text.split(" - ")[1];
-            summaryDiv.innerHTML = `
-                <strong>Nombre de la Finca:</strong> ${nombreFinca}<br>
-                <strong>Propietario:</strong> ${propietario}<br>
-                <strong>Área Total:</strong> ${areaTotal.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ha
-            `;
-
-            generarGrafico(cultivos);
-
-            map.fitBounds(bounds);
-        }
-
-        function generarGrafico(cultivos) {
-            if (chart) {
-                chart.destroy(); // Eliminar gráfico previo si existe
-            }
-
-            const labels = Object.keys(cultivos).sort();
-            const data = labels.map(cultivo => cultivos[cultivo]);
-            const backgroundColors = labels.map(cultivo => colorMap[cultivo] || '#D3D3D3');
-
-            chart = new Chart(chartCanvas, {
-                type: 'pie',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: data,
-                        backgroundColor: backgroundColors
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: { position: 'top' }
-                    }
-                }
-            });
+        function estiloUsos(feature) {
+            const cultivo = feature.properties.cultivo 
+                ? feature.properties.cultivo.trim().toLowerCase() 
+                : "otros";
+            const color = colorMap[cultivo] || '#D3D3D3';
+            return { color: color, fillOpacity: 0.7, weight: 1 };
         }
 
         // Enlaces "raw" de GitHub
