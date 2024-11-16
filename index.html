@@ -19,7 +19,7 @@
             position: absolute;
             bottom: 20px;
             right: 20px;
-            background: rgba(255, 255, 255, 0.9);
+            background: rgba(255, 255, 255, 0.95);
             box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.2);
             padding: 10px;
             border-radius: 8px;
@@ -73,20 +73,21 @@
 
         // Colores predefinidos para cultivos
         const colorMap = {
-            'bosque de galería': '#1b5e20',
-            'pasto limpio': '#43a047',
-            'pasto enmalezado': '#f4511e',
-            'palma aceite': '#fbc02d',
-            'infraestructura': '#9e9e9e',
-            'otros': '#8e44ad'
+            'bosque de galería': '#1b5e20', // Verde oscuro
+            'pasto limpio': '#43a047',      // Verde brillante
+            'pasto enmalezado': '#f4511e', // Naranja rojizo
+            'palma aceite': '#fbc02d',     // Amarillo
+            'infraestructura': '#757575',  // Gris oscuro
+            'otros': '#8e44ad'             // Morado
         };
 
-        // Cargar GeoJSON y asignar colores al mapa
+        // Cargar GeoJSON con colores aplicados
         function cargarGeoJSON(url) {
             fetch(url)
                 .then(res => res.json())
                 .then(data => {
                     geojsonData = data;
+
                     L.geoJSON(data, {
                         style: feature => {
                             const cultivo = feature.properties.cultivo || 'otros';
@@ -97,8 +98,9 @@
                             };
                         },
                         onEachFeature: (feature, layer) => {
+                            const cultivo = feature.properties.cultivo || 'Sin información';
                             const area = parseFloat(feature.properties.has || 0).toFixed(2);
-                            layer.bindPopup(`Cultivo: ${feature.properties.cultivo}<br>Área: ${area} ha`);
+                            layer.bindPopup(`Cultivo: ${cultivo}<br>Área: ${area} ha`);
                         }
                     }).addTo(map);
                 })
