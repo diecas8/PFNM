@@ -97,85 +97,51 @@
         var geojsonData, fincas = new Set(); // Usar un Set para evitar duplicados
         var chart;
 
-        // Función para cargar capas GeoJSON
-        function cargarGeoJSON(url, estilo, nombreCapa, etiquetar = false) {
-            fetch(url)
-                .then(response => {
-                    if (!response.ok) throw new Error(`Error al cargar ${nombreCapa}`);
-                    return response.json();
-                })
-                .then(data => {
-                    geojsonData = data;
-                    var layer = L.geoJSON(data, {
-                        style: estilo,
-                        onEachFeature: function (feature, layer) {
-                            const codFinca = feature.properties.cod_finca || "N/A";
+      // Función para cargar capas GeoJSON
+function cargarGeoJSON(url, estilo, nombreCapa, etiquetar = false) {
+    fetch(url)
+        .then(response => {
+            if (!response.ok) throw new Error(`Error al cargar ${nombreCapa}`);
+            return response.json();
+        })
+        .then(data => {
+            geojsonData = data;
+            var layer = L.geoJSON(data, {
+                style: estilo,
+                onEachFeature: function (feature, layer) {
+                    const codFinca = feature.properties.cod_finca || "N/A";
 
-                            // Agregar código único al selector
-                            if (etiquetar && !fincas.has(codFinca)) {
-                                fincas.add(codFinca);
+                    // Agregar códigos únicos al selector
+                    if (etiquetar && !fincas.has(codFinca)) {
+                        fincas.set(codFinca, codFinca); // Usamos un Map para evitar duplicados
 
-                                const option = document.createElement('option');
-                                option.value = codFinca;
-                                option.textContent = codFinca; // Solo mostrar cod_finca
-                                fincaSelector.appendChild(option);
-                            }
-
-                            if (feature.properties.cultivo) {
-                                const cultivo = feature.properties.cultivo;
-                                const area = parseFloat(feature.properties.has).toFixed(2);
-                                layer.bindPopup(`Cultivo: ${cultivo}<br>Área: ${area} ha`);
-                            }
-                        }
-                    });
-                    layer.addTo(map);
-                    layerControl.addOverlay(layer, nombreCapa);
-                    bounds.extend(layer.getBounds());
-                })
-                .catch(error => console.error(`Error cargando ${nombreCapa}:`, error));
-        }
-
-        // Función para centrar en la finca seleccionada
-        function centrarEnFinca() {
-            const selectedFinca = fincaSelector.value;
-            if (!selectedFinca || !geojsonData) return;
-
-            let areaTotal = 0;
-            let propietario = "N/A";
-            const cultivos = {};
-
-            const bounds = L.latLngBounds();
-
-            geojsonData.features.forEach(feature => {
-                if (feature.properties.cod_finca === selectedFinca) {
-                    const cultivo = feature.properties.cultivo || "Sin información";
-                    const area = parseFloat(feature.properties.has) || 0;
-
-                    areaTotal += area;
-                    propietario = feature.properties.propietari || propietario;
-
-                    if (!cultivos[cultivo]) {
-                        cultivos[cultivo] = 0;
+                        // Ordenar las fincas alfabéticamente
+                        const sortedFincas = Array.from(fincas.keys()).sort();
+                        fincaSelector.innerHTML = '<option value="">Seleccione una finca</option>'; // Reinicia el selector
+                        sortedFincas.forEach(codigo => {
+                            const option = document.createElement('option');
+                            option.value = codigo;
+                            option.textContent = codigo; // Solo mostrar el código
+                            fincaSelector.appendChild(option);
+                        });
                     }
-                    cultivos[cultivo] += area;
 
-                    if (feature.geometry) {
-                        bounds.extend(L.geoJSON(feature).getBounds());
+                    // Añadir popups para cultivos
+                    if (feature.properties.cultivo) {
+                        const cultivo = feature.properties.cultivo;
+                        const area = parseFloat(feature.properties.has).toFixed(2);
+                        layer.bindPopup(`Cultivo: ${cultivo}<br>Área: ${area} ha`);
                     }
                 }
             });
+            layer.addTo(map);
+            layerControl.addOverlay(layer, nombreCapa);
+            bounds.extend(layer.getBounds());
+        })
+        .catch(error => console.error(`Error cargando ${nombreCapa}:`, error));
+}
 
-            summaryDiv.innerHTML = `
-                <strong>Código:</strong> ${selectedFinca}<br>
-                <strong>Propietario:</strong> ${propietario}<br>
-                <strong>Área Total:</strong> ${areaTotal.toFixed(2)} ha
-            `;
-
-            generarGrafico(cultivos, areaTotal);
-            map.fitBounds(bounds);
-        }
-
-       // Generar gráfico de torta
+// Generar gráfico de torta
 function generarGrafico(cultivos, areaTotal) {
     if (chart) chart.destroy();
 
