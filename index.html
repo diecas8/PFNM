@@ -71,24 +71,18 @@
         var bounds = L.latLngBounds();
         var layerControl = L.control.layers(null, null, { collapsed: false }).addTo(map);
 
-        // Esquema de colores actualizado para cultivos
+        // Esquema de colores para cultivos
         const colorMap = {
             'bosque de galería': '#1b5e20',
             'arroz': '#fdd835',
             'río': '#0288d1',
             'lago': '#03a9f4',
-            'estero': '#00bcd4',
-            'humedales': '#8bc34a',
-            'pasto enmalezado': '#7cb342',
+            'infraestructura': '#9e9e9e',
+            'pasto arbolado': '#6d4c41',
             'pasto limpio': '#43a047',
-            'pasto arbolado': '#558b2f',
-            'cacao': '#6d4c41',
-            'algarrobo': '#5d4037',
-            'papaya': '#e64a19',
-            'maíz': '#ff9800',
-            'café': '#d32f2f',
             'otros': '#9e9e9e',
-            'palma aceite': '#795548'
+            'palma aceite': '#795548',
+            'pasto enmalezado': '#8bc34a'
         };
 
         var fincaSelector = document.getElementById('fincaSelector');
@@ -97,65 +91,137 @@
         var geojsonData, fincas = new Set(); // Usar un Set para evitar duplicados
         var chart;
 
-    // Función para cargar capas GeoJSON
-function cargarGeoJSON(url, estilo, nombreCapa, etiquetar = false) {
-    fetch(url)
-        .then(response => {
-            if (!response.ok) throw new Error(`Error al cargar ${nombreCapa}`);
-            return response.json();
-        })
-        .then(data => {
-            geojsonData = data;
-            const fincaSet = new Set(); // Usar un Set para evitar duplicados
+        // Función para cargar capas GeoJSON
+        function cargarGeoJSON(url, estilo, nombreCapa, etiquetar = false) {
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) throw new Error(`Error al cargar ${nombreCapa}`);
+                    return response.json();
+                })
+                .then(data => {
+                    geojsonData = data;
+                    var layer = L.geoJSON(data, {
+                        style: estilo,
+                        onEachFeature: function (feature, layer) {
+                            const codFinca = feature.properties.cod_finca || "N/A";
 
-            var layer = L.geoJSON(data, {
-                style: estilo,
-                onEachFeature: function (feature, layer) {
-                    const codFinca = feature.properties.cod_finca || "N/A";
+                            // Agregar código único al Set
+                            if (etiquetar && codFinca !== "N/A") {
+                                fincas.add(codFinca);
+                            }
 
-                    // Agregar códigos únicos al Set
-                    if (etiquetar && codFinca !== "N/A") {
-                        fincaSet.add(codFinca);
+                            // Añadir popups para cultivos
+                            if (feature.properties.cultivo) {
+                                const cultivo = feature.properties.cultivo;
+                                const area = parseFloat(feature.properties.has).toFixed(2);
+                                layer.bindPopup(`Cultivo: ${cultivo}<br>Área: ${area} ha`);
+                            }
+                        }
+                    });
+
+                    // Agregar códigos únicos y ordenados al selector
+                    if (etiquetar) {
+                        const sortedFincas = Array.from(fincas).sort(); // Ordenar alfabéticamente
+                        fincaSelector.innerHTML = '<option value="">Seleccione una finca</option>'; // Reinicia el selector
+                        sortedFincas.forEach(codigo => {
+                            const option = document.createElement('option');
+                            option.value = codigo;
+                            option.textContent = codigo; // Solo mostrar el código
+                            fincaSelector.appendChild(option);
+                        });
                     }
 
-                    // Añadir popups para cultivos
-                    if (feature.properties.cultivo) {
-                        const cultivo = feature.properties.cultivo;
-                        const area = parseFloat(feature.properties.has).toFixed(2);
-                        layer.bindPopup(`Cultivo: ${cultivo}<br>Área: ${area} ha`);
+                    layer.addTo(map);
+                    layerControl.addOverlay(layer, nombreCapa);
+                    bounds.extend(layer.getBounds());
+                })
+                .catch(error => console.error(`Error cargando ${nombreCapa}:`, error));
+        }
+
+        // Función para centrar en la finca seleccionada
+        function centrarEnFinca() {
+            const selectedFinca = fincaSelector.value;
+            if (!selectedFinca || !geojsonData) return;
+
+            let areaTotal = 0;
+            let propietario = "N/A";
+            const cultivos = {};
+
+            const bounds = L.latLngBounds();
+
+            geojsonData.features.forEach(feature => {
+                if (feature.properties.cod_finca === selectedFinca) {
+                    const cultivo = feature.properties.cultivo || "Sin información";
+                    const area = parseFloat(feature.properties.has) || 0;
+
+                    areaTotal += area;
+                    propietario = feature.properties.propietari || propietario;
+
+                    if (!cultivos[cultivo]) {
+                        cultivos[cultivo] = 0;
+                    }
+                    cultivos[cultivo] += area;
+
+                    if (feature.geometry) {
+                        bounds.extend(L.geoJSON(feature).getBounds());
                     }
                 }
             });
 
-            // Agregar códigos únicos y ordenados al selector
-            if (etiquetar) {
-                const sortedFincas = Array.from(fincaSet).sort(); // Ordenar alfabéticamente
-                fincaSelector.innerHTML = '<option value="">Seleccione una finca</option>'; // Reinicia el selector
-                sortedFincas.forEach(codigo => {
-                    const option = document.createElement('option');
-                    option.value = codigo;
-                    option.textContent = codigo; // Solo mostrar el código
-                    fincaSelector.appendChild(option);
-                });
-            }
+            summaryDiv.innerHTML = `
+                <strong>Código:</strong> ${selectedFinca}<br>
+                <strong>Propietario:</strong> ${propietario}<br>
+                <strong>Área Total:</strong> ${areaTotal.toFixed(2)} ha
+            `;
 
-            layer.addTo(map);
-            layerControl.addOverlay(layer, nombreCapa);
-            bounds.extend(layer.getBounds());
-        })
-        .catch(error => console.error(`Error cargando ${nombreCapa}:`, error));
-}
+            generarGrafico(cultivos, areaTotal);
+            map.fitBounds(bounds);
+        }
 
-// Llamada a cargar las capas GeoJSON
-const baseURL = "https://raw.githubusercontent.com/diecas8/PFNM/main/";
-cargarGeoJSON(`${baseURL}Rutas.geojson`, { color: '#FF6347', weight: 2 }, "Rutas");
-cargarGeoJSON(`${baseURL}fincas.geojson`, { color: '#000000', weight: 1 }, "Fincas", true);
-cargarGeoJSON(`${baseURL}usos2.geojson`, function(feature) {
-    const cultivo = feature.properties.cultivo ? feature.properties.cultivo.trim().toLowerCase() : "otros";
-    const color = colorMap[cultivo] || '#D3D3D3';
-    return { color: color, fillOpacity: 0.7, weight: 1 };
-}, "Usos 2");
+        // Generar gráfico de torta
+        function generarGrafico(cultivos, areaTotal) {
+            if (chart) chart.destroy();
 
+            const labels = Object.keys(cultivos).sort(); // Cultivos ordenados alfabéticamente
+            const data = labels.map(cultivo => cultivos[cultivo]); // Áreas por cultivo
+            const percentages = data.map(area => ((area / areaTotal) * 100).toFixed(2)); // Porcentajes
+            const backgroundColors = labels.map(cultivo => colorMap[cultivo] || '#D3D3D3'); // Colores asociados
+
+            chart = new Chart(chartCanvas, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: backgroundColors // Usar los mismos colores del mapa
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const index = context.dataIndex;
+                                    return `${labels[index]}: ${data[index]} ha (${percentages[index]}%)`;
+                                }
+                            }
+                        },
+                        legend: { position: 'top' }
+                    }
+                }
+            });
+        }
+
+        // Cargar capas desde GeoJSON
+        const baseURL = "https://raw.githubusercontent.com/diecas8/PFNM/main/";
+        cargarGeoJSON(`${baseURL}Rutas.geojson`, { color: '#FF6347', weight: 2 }, "Rutas");
+        cargarGeoJSON(`${baseURL}fincas.geojson`, { color: '#000000', weight: 1 }, "Fincas", true);
+        cargarGeoJSON(`${baseURL}usos2.geojson`, function(feature) {
+            const cultivo = feature.properties.cultivo ? feature.properties.cultivo.trim().toLowerCase() : "otros";
+            const color = colorMap[cultivo] || '#D3D3D3';
+            return { color: color, fillOpacity: 0.7, weight: 1 };
+        }, "Usos 2");
     </script>
 </body>
 </html>
