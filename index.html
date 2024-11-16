@@ -138,90 +138,95 @@
                 .catch(error => console.error(`Error cargando ${nombreCapa}:`, error));
         }
 
-        // Función para centrar en la finca seleccionada
-        function centrarEnFinca() {
-            const selectedFinca = fincaSelector.value;
-            if (!selectedFinca || !geojsonData) return;
+       // Función para centrar en la finca seleccionada
+function centrarEnFinca() {
+    const selectedFinca = fincaSelector.value;
+    if (!selectedFinca || !geojsonData) return;
 
-            let areaTotal = 0;
-            let propietario = "N/A";
-            const cultivos = {};
+    let areaTotal = 0;
+    let propietario = "N/A";
+    let nombreFinca = "N/A";
+    const cultivos = {};
 
-            const bounds = L.latLngBounds();
+    const bounds = L.latLngBounds();
 
-            geojsonData.features.forEach(feature => {
-                if (feature.properties.cod_finca === selectedFinca) {
-                    const cultivo = feature.properties.cultivo || "Sin información";
-                    const area = parseFloat(feature.properties.has) || 0;
+    geojsonData.features.forEach(feature => {
+        if (feature.properties.cod_finca === selectedFinca) {
+            const cultivo = feature.properties.cultivo || "Sin información";
+            const area = parseFloat(feature.properties.has) || 0;
 
-                    areaTotal += area;
-                    propietario = feature.properties.propietari || propietario;
+            areaTotal += area;
+            propietario = feature.properties.propietari || propietario;
+            nombreFinca = feature.properties.nom_finca_ || nombreFinca;
 
-                    if (!cultivos[cultivo]) {
-                        cultivos[cultivo] = 0;
-                    }
-                    cultivos[cultivo] += area;
+            if (!cultivos[cultivo]) {
+                cultivos[cultivo] = 0;
+            }
+            cultivos[cultivo] += area;
 
-                    if (feature.geometry) {
-                        bounds.extend(L.geoJSON(feature).getBounds());
-                    }
-                }
-            });
-
-            summaryDiv.innerHTML = `
-                <strong>Código:</strong> ${selectedFinca}<br>
-                <strong>Propietario:</strong> ${propietario}<br>
-                <strong>Área Total:</strong> ${areaTotal.toFixed(2)} ha
-            `;
-
-            generarGrafico(cultivos, areaTotal);
-            map.fitBounds(bounds);
+            if (feature.geometry) {
+                bounds.extend(L.geoJSON(feature).getBounds());
+            }
         }
+    });
 
-        // Generar gráfico de torta
-        function generarGrafico(cultivos, areaTotal) {
-            if (chart) chart.destroy();
+    // Actualizar el resumen con el nombre de la finca
+    summaryDiv.innerHTML = `
+        <strong>Código:</strong> ${selectedFinca}<br>
+        <strong>Nombre de la Finca:</strong> ${nombreFinca}<br>
+        <strong>Propietario:</strong> ${propietario}<br>
+        <strong>Área Total:</strong> ${areaTotal.toFixed(2)} ha
+    `;
 
-            const labels = Object.keys(cultivos).sort(); // Cultivos ordenados alfabéticamente
-            const data = labels.map(cultivo => cultivos[cultivo]); // Áreas por cultivo
-            const percentages = data.map(area => ((area / areaTotal) * 100).toFixed(2)); // Porcentajes
-            const backgroundColors = labels.map(cultivo => colorMap[cultivo] || '#D3D3D3'); // Colores asociados
+    generarGrafico(cultivos, areaTotal);
+    map.fitBounds(bounds);
+}
 
-            chart = new Chart(chartCanvas, {
-                type: 'pie',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: data,
-                        backgroundColor: backgroundColors // Usar los mismos colores del mapa
-                    }]
+// Generar gráfico de torta con colores consistentes
+function generarGrafico(cultivos, areaTotal) {
+    if (chart) chart.destroy();
+
+    const labels = Object.keys(cultivos).sort(); // Cultivos ordenados alfabéticamente
+    const data = labels.map(cultivo => cultivos[cultivo]); // Áreas por cultivo
+    const percentages = data.map(area => ((area / areaTotal) * 100).toFixed(2)); // Porcentajes
+    const backgroundColors = labels.map(cultivo => colorMap[cultivo] || '#D3D3D3'); // Colores asociados
+
+    chart = new Chart(chartCanvas, {
+        type: 'pie',
+        data: {
+            labels: labels,
+            datasets: [{
+                data: data,
+                backgroundColor: backgroundColors // Usar los mismos colores del mapa
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            const index = context.dataIndex;
+                            return `${labels[index]}: ${data[index]} ha (${percentages[index]}%)`;
+                        }
+                    }
                 },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const index = context.dataIndex;
-                                    return `${labels[index]}: ${data[index]} ha (${percentages[index]}%)`;
-                                }
-                            }
-                        },
-                        legend: { position: 'top' }
-                    }
-                }
-            });
+                legend: { position: 'top' }
+            }
         }
+    });
+}
 
-        // Cargar capas desde GeoJSON
-        const baseURL = "https://raw.githubusercontent.com/diecas8/PFNM/main/";
-        cargarGeoJSON(`${baseURL}Rutas.geojson`, { color: '#FF6347', weight: 2 }, "Rutas");
-        cargarGeoJSON(`${baseURL}fincas.geojson`, { color: '#000000', weight: 1 }, "Fincas", true);
-        cargarGeoJSON(`${baseURL}usos2.geojson`, function(feature) {
-            const cultivo = feature.properties.cultivo ? feature.properties.cultivo.trim().toLowerCase() : "otros";
-            const color = colorMap[cultivo] || '#D3D3D3';
-            return { color: color, fillOpacity: 0.7, weight: 1 };
-        }, "Usos 2");
+// Cargar capas desde GeoJSON
+const baseURL = "https://raw.githubusercontent.com/diecas8/PFNM/main/";
+cargarGeoJSON(`${baseURL}Rutas.geojson`, { color: '#FF6347', weight: 2 }, "Rutas");
+cargarGeoJSON(`${baseURL}fincas.geojson`, { color: '#000000', weight: 1 }, "Fincas", true);
+cargarGeoJSON(`${baseURL}usos2.geojson`, function(feature) {
+    const cultivo = feature.properties.cultivo ? feature.properties.cultivo.trim().toLowerCase() : "otros";
+    const color = colorMap[cultivo] || '#D3D3D3';
+    return { color: color, fillOpacity: 0.7, weight: 1 };
+}, "Usos 2");
+
     </script>
 </body>
 </html>
