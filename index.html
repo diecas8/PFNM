@@ -97,7 +97,7 @@
         var geojsonData, fincas = new Set(); // Usar un Set para evitar duplicados
         var chart;
 
-     // Función para cargar capas GeoJSON
+    // Función para cargar capas GeoJSON
 function cargarGeoJSON(url, estilo, nombreCapa, etiquetar = false) {
     fetch(url)
         .then(response => {
@@ -113,7 +113,7 @@ function cargarGeoJSON(url, estilo, nombreCapa, etiquetar = false) {
                 onEachFeature: function (feature, layer) {
                     const codFinca = feature.properties.cod_finca || "N/A";
 
-                    // Agregar código único al Set
+                    // Agregar códigos únicos al Set
                     if (etiquetar && codFinca !== "N/A") {
                         fincaSet.add(codFinca);
                     }
