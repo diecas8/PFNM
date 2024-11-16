@@ -24,44 +24,26 @@
             height: 600px;
             overflow-y: auto;
         }
-        .logo {
-            width: 100px;
+        .summary-container strong {
             display: block;
-            margin: 0 auto 10px;
+            margin-bottom: 5px;
         }
-        .filter {
-            background: white;
-            padding: 10px;
-            color: #333;
+        .summary-container p {
+            margin: 0 0 5px;
             font-size: 14px;
-            margin-top: 10px;
             line-height: 1.5;
-        }
-        .summary {
-            margin-top: 20px;
-            background: white;
-            padding: 10px;
-            font-size: 14px;
         }
         .chart-container {
             width: 100%;
-            height: 300px;
-            margin-top: 20px;
-        }
-        .summary-detail {
-            font-size: 14px;
+            height: 200px;
             margin-top: 10px;
-            padding: 10px;
-            background-color: #ffffff;
-            border: 1px solid #ddd;
-            line-height: 1.5;
         }
     </style>
 </head>
 <body>
     <div class="sidebar">
         <img src="CBS.png" class="logo" alt="Logo">
-        <div class="filter">
+        <div>
             <strong>Seleccionar Finca</strong><br>
             <select id="fincaSelector" onchange="centrarEnFinca()">
                 <option value="">Seleccione una finca</option>
@@ -75,7 +57,7 @@
     <div id="map"></div>
     <div class="summary-container">
         <strong>Detalle de Cultivos</strong>
-        <div id="summary-detail" class="summary-detail"></div>
+        <div id="summary-detail"></div>
     </div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -89,142 +71,118 @@
             attribution: '© OpenStreetMap contributors'
         }).addTo(map);
 
-        var bounds = L.latLngBounds();
-        var layerControl = L.control.layers(null, null, { collapsed: false }).addTo(map);
+        var geojsonData, fincas = [], chart;
+        const fincaSelector = document.getElementById('fincaSelector');
+        const summaryDiv = document.getElementById('summary');
+        const summaryDetailDiv = document.getElementById('summary-detail');
+        const chartCanvas = document.getElementById('chart');
 
-        // Esquema de colores para cultivos
+        // Colores predefinidos para cultivos
         const colorMap = {
-            'bosque de galería': '#1b5e20', // Verde oscuro específico
+            'bosque de galería': '#1b5e20', // Verde oscuro
+            'pasto limpio': '#2e7d32',
+            'pasto enmalezado': '#ff5722',
             'palma aceite': '#ff9800',
-            'pasto enmalezado': '#e64a19',
-            'pasto limpio': '#0288d1',
-            'otros': '#9e9e9e' // Color genérico para cultivos no especificados
+            'otros': '#b0bec5'
         };
-
-        const defaultColors = [
-            '#fdd835', '#0288d1', '#03a9f4', '#9e9e9e',
-            '#6d4c41', '#43a047', '#795548', '#8bc34a',
-            '#e64a19', '#ff9800', '#d32f2f', '#3f51b5'
-        ];
+        const defaultColors = ['#fdd835', '#03a9f4', '#8bc34a', '#ff7043', '#bdbdbd'];
         let colorIndex = 0;
 
-        var fincaSelector = document.getElementById('fincaSelector');
-        var summaryDiv = document.getElementById('summary');
-        var summaryDetailDiv = document.getElementById('summary-detail');
-        var chartCanvas = document.getElementById('chart');
-        var geojsonData, fincas = []; // Lista para almacenar códigos y nombres únicos
-        var chart;
-
-        // Función para cargar capas GeoJSON
+        // Cargar capas GeoJSON
         function cargarGeoJSON(url, estilo, nombreCapa) {
             fetch(url)
-                .then(response => {
-                    if (!response.ok) throw new Error(`Error al cargar ${nombreCapa}`);
-                    return response.json();
-                })
+                .then(res => res.json())
                 .then(data => {
                     geojsonData = data;
-                    var layer = L.geoJSON(data, {
+                    const layer = L.geoJSON(data, {
                         style: estilo,
-                        onEachFeature: function (feature, layer) {
+                        onEachFeature: (feature, layer) => {
                             const codFinca = feature.properties.cod_finca || "N/A";
                             const nomFinca = feature.properties.nom_finca_ || "Sin nombre";
+                            const cultivo = feature.properties.cultivo || "otros";
 
                             // Asignar color dinámico si no existe
-                            const cultivo = feature.properties.cultivo || "otros";
                             if (!colorMap[cultivo]) {
                                 colorMap[cultivo] = defaultColors[colorIndex % defaultColors.length];
                                 colorIndex++;
                             }
 
-                            // Agregar código y nombre únicos al listado
-                            if (codFinca !== "N/A" && nomFinca !== "Sin nombre") {
-                                const fincaEntry = `${codFinca} - ${nomFinca}`;
-                                if (!fincas.includes(fincaEntry)) {
-                                    fincas.push(fincaEntry);
-                                }
+                            // Agregar fincas únicas al selector
+                            if (!fincas.some(f => f.codigo === codFinca)) {
+                                fincas.push({ codigo: codFinca, nombre: nomFinca });
                             }
 
-                            // Añadir popups para cultivos
+                            // Popups con información
                             const area = parseFloat(feature.properties.has || 0).toFixed(2);
                             layer.bindPopup(`Cultivo: ${cultivo}<br>Área: ${area} ha`);
                         }
-                    });
+                    }).addTo(map);
 
-                    // Actualizar la lista desplegable
-                    fincas.sort(); // Ordenar alfabéticamente
-                    fincaSelector.innerHTML = '<option value="">Seleccione una finca</option>';
-                    fincas.forEach(entry => {
-                        const option = document.createElement('option');
-                        option.value = entry.split(' - ')[0]; // Usar solo el código como valor
-                        option.textContent = entry; // Mostrar "código - nombre"
-                        fincaSelector.appendChild(option);
-                    });
-
-                    layer.addTo(map);
-                    layerControl.addOverlay(layer, nombreCapa);
-                    bounds.extend(layer.getBounds());
+                    // Actualizar lista de fincas
+                    actualizarSelector();
                 })
-                .catch(error => console.error(`Error cargando ${nombreCapa}:`, error));
+                .catch(err => console.error(`Error al cargar ${nombreCapa}:`, err));
         }
 
-        // Función para centrar en la finca seleccionada
+        function actualizarSelector() {
+            fincaSelector.innerHTML = '<option value="">Seleccione una finca</option>';
+            fincas.sort((a, b) => a.nombre.localeCompare(b.nombre));
+            fincas.forEach(finca => {
+                const option = document.createElement('option');
+                option.value = finca.codigo;
+                option.textContent = `${finca.codigo} - ${finca.nombre}`;
+                fincaSelector.appendChild(option);
+            });
+        }
+
+        // Centrar en finca seleccionada y actualizar resumen
         function centrarEnFinca() {
             const selectedFinca = fincaSelector.value;
             if (!selectedFinca || !geojsonData) return;
 
             let areaTotal = 0;
+            const cultivos = {};
             let propietario = "N/A";
             let nombreFinca = "N/A";
-            const cultivos = {};
-
-            const bounds = L.latLngBounds();
 
             geojsonData.features.forEach(feature => {
                 if (feature.properties.cod_finca === selectedFinca) {
-                    const cultivo = feature.properties.cultivo || "Sin información";
-                    const area = parseFloat(feature.properties.has) || 0;
-
-                    areaTotal += area;
+                    const cultivo = feature.properties.cultivo || "otros";
+                    const area = parseFloat(feature.properties.has || 0);
                     propietario = feature.properties.propietari || propietario;
                     nombreFinca = feature.properties.nom_finca_ || nombreFinca;
 
-                    if (!cultivos[cultivo]) {
-                        cultivos[cultivo] = 0;
-                    }
+                    if (!cultivos[cultivo]) cultivos[cultivo] = 0;
                     cultivos[cultivo] += area;
-
-                    if (feature.geometry) {
-                        bounds.extend(L.geoJSON(feature).getBounds());
-                    }
+                    areaTotal += area;
                 }
             });
 
-            // Actualizar resumen general
+            // Resumen general
             summaryDiv.innerHTML = `
-                <strong>Código:</strong> ${selectedFinca}<br>
-                <strong>Nombre de la Finca:</strong> ${nombreFinca}<br>
-                <strong>Propietario:</strong> ${propietario}<br>
-                <strong>Área Total:</strong> ${areaTotal.toFixed(2)} ha
+                <p><strong>Código:</strong> ${selectedFinca}</p>
+                <p><strong>Nombre:</strong> ${nombreFinca}</p>
+                <p><strong>Propietario:</strong> ${propietario}</p>
+                <p><strong>Área Total:</strong> ${areaTotal.toFixed(2)} ha</p>
             `;
 
-            // Actualizar detalle de cultivos
-            let detalleHTML = "";
+            // Detalle de cultivos
+            let detalleHTML = "<p><strong>Resumen por Cultivo:</strong></p>";
             Object.entries(cultivos).forEach(([cultivo, area]) => {
-                detalleHTML += `<strong>${cultivo}:</strong> ${area.toFixed(2)} ha<br>`;
+                detalleHTML += `<p>${cultivo}: ${area.toFixed(2)} ha</p>`;
             });
+            detalleHTML += `<p><strong>Total:</strong> ${areaTotal.toFixed(2)} ha</p>`;
             summaryDetailDiv.innerHTML = detalleHTML;
 
-            // Generar gráfico de torta
-            generarGrafico(cultivos, areaTotal);
-            map.fitBounds(bounds);
+            // Gráfico
+            actualizarGrafico(cultivos, areaTotal);
         }
 
-        // Generar gráfico de torta
-        function generarGrafico(cultivos, areaTotal) {
+        // Actualizar gráfico de torta
+        function actualizarGrafico(cultivos, areaTotal) {
             if (chart) chart.destroy();
 
-            const labels = Object.keys(cultivos).sort();
+            const labels = Object.keys(cultivos);
             const data = labels.map(cultivo => cultivos[cultivo]);
             const backgroundColors = labels.map(cultivo => colorMap[cultivo]);
 
@@ -242,7 +200,7 @@
                     plugins: {
                         tooltip: {
                             callbacks: {
-                                label: function(context) {
+                                label: context => {
                                     const label = context.label;
                                     const value = context.raw;
                                     const percentage = ((value / areaTotal) * 100).toFixed(2);
@@ -256,11 +214,11 @@
             });
         }
 
-        // Cargar capas desde GeoJSON
-        cargarGeoJSON('./Cultivos.geojson', function(feature) {
+        // Cargar capas
+        cargarGeoJSON('./Cultivos.geojson', feature => {
             const cultivo = feature.properties.cultivo || "otros";
-            const color = colorMap[cultivo] || '#9e9e9e';
-            return { color: color, fillOpacity: 0.7, weight: 1 };
+            const color = colorMap[cultivo] || '#bdbdbd';
+            return { color, fillOpacity: 0.7, weight: 1 };
         }, "Cultivos");
     </script>
 </body>
