@@ -65,14 +65,21 @@
         const summaryDiv = document.getElementById('summary');
         let geojsonData;
 
-        function cargarGeoJSON(url, estilo, nombreCapa) {
+        // Estilo predeterminado para las capas
+        const defaultStyle = {
+            color: '#0000FF',
+            weight: 1,
+            fillOpacity: 0.5
+        };
+
+        function cargarGeoJSON(url, estilo = defaultStyle, nombreCapa) {
             fetch(url)
                 .then(response => response.json())
                 .then(data => {
                     geojsonData = data;
 
                     const layer = L.geoJSON(data, {
-                        style,
+                        style: typeof estilo === 'function' ? estilo : () => estilo,
                         onEachFeature: (feature, layer) => {
                             const codFinca = feature.properties.cod_finca || "N/A";
                             const nomFinca = feature.properties.nom_finca_ || "Sin nombre";
@@ -113,7 +120,8 @@
             map.fitBounds(bounds);
         }
 
-        cargarGeoJSON('./Cultivos.geojson', { color: '#0000FF', weight: 1 }, 'Cultivos');
+        // Cargar las capas
+        cargarGeoJSON('./Cultivos.geojson', defaultStyle, 'Cultivos');
     </script>
 </body>
 </html>
