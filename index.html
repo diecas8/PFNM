@@ -118,14 +118,20 @@
             }
         }
 
+        // Enlaces "raw" de GitHub
+        const baseURL = "https://raw.githubusercontent.com/diecas8/PFNM/main/";
+        const rutasGeoJSON = `${baseURL}Rutas.geojson`;
+        const usos2GeoJSON = `${baseURL}usos2.geojson`;
+        const fincasGeoJSON = `${baseURL}fincas.geojson`;
+
         // Cargar capas
-        cargarGeoJSON("http://localhost:8000/Rutas.geojson", { color: '#FFA500', weight: 2 }, "Rutas");
-        cargarGeoJSON("http://localhost:8000/usos2.geojson", feature => {
+        cargarGeoJSON(rutasGeoJSON, { color: '#FFA500', weight: 2 }, "Rutas");
+        cargarGeoJSON(usos2GeoJSON, feature => {
             const cultivo = feature.properties.cultivo ? feature.properties.cultivo.trim().toLowerCase() : "";
             const color = colorMap[cultivo] || 'gray';
             return { color: color, fillOpacity: 0.5, weight: 1 };
         }, "Usos 2");
-        cargarGeoJSON("http://localhost:8000/fincas.geojson", { color: '#000', weight: 2, fillOpacity: 0 }, "Fincas", true);
+        cargarGeoJSON(fincasGeoJSON, { color: '#000', weight: 2, fillOpacity: 0 }, "Fincas", true);
     </script>
 </body>
 </html>
