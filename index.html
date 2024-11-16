@@ -108,15 +108,16 @@
             var layer = L.geoJSON(data, {
                 style: estilo,
                 onEachFeature: function (feature, layer) {
+                    // Leer el código y el nombre de la finca desde la capa usos2
                     const codFinca = feature.properties.cod_finca || "N/A";
                     const nombreFinca = feature.properties.nom_finca_ || "Sin nombre";
                     const fincaLabel = `${codFinca} - ${nombreFinca}`;
 
-                    // Evitar duplicados en el listado desplegable
+                    // Agregar al listado desplegable si aún no existe
                     if (etiquetar && !Array.from(fincaSelector.options).some(option => option.textContent === fincaLabel)) {
                         const option = document.createElement('option');
-                        option.value = codFinca; // Usamos el `cod_finca` como valor
-                        option.textContent = fincaLabel; // Mostramos `cod_finca - nom_finca_` en el texto
+                        option.value = codFinca; // Usamos el código como valor
+                        option.textContent = fincaLabel; // Concatenamos código y nombre
                         fincaSelector.appendChild(option);
                     }
 
