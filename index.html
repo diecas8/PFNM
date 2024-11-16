@@ -111,10 +111,16 @@
                 style: estilo,
                 onEachFeature: function (feature, layer) {
                     const codFinca = feature.properties.cod_finca || "N/A";
-                    const nombreFinca = feature.properties.nom_finca_ || "Sin nombre";
+                    let nombreFinca = feature.properties.nom_finca_; // Tomamos directamente nom_finca_
+
+                    // Si el nombre de la finca está vacío o es null, usar un valor alternativo
+                    if (!nombreFinca || nombreFinca.trim() === "") {
+                        nombreFinca = "Sin nombre";
+                    }
+
                     const fincaLabel = `${codFinca} - ${nombreFinca}`;
 
-                    // Si estamos etiquetando, registrar fincas únicas en el listado desplegable
+                    // Asegurarse de que cada finca aparezca solo una vez en el listado desplegable
                     if (etiquetar && !fincasUnicas.has(codFinca)) {
                         fincasUnicas.set(codFinca, fincaLabel);
 
@@ -141,8 +147,7 @@
             bounds.extend(layer.getBounds());
         })
         .catch(error => console.error(`Error cargando ${nombreCapa}:`, error));
-}
-        // Centrar en finca seleccionada
+}        // Centrar en finca seleccionada
         function centrarEnFinca() {
             const selectedFinca = fincaSelector.value;
             if (!selectedFinca || !geojsonData) return;
