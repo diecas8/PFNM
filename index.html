@@ -71,6 +71,7 @@
         var bounds = L.latLngBounds();
         var layerControl = L.control.layers(null, null, { collapsed: false }).addTo(map);
 
+        // Colores para los cultivos
         const colorMap = {
             'bosque de galería': '#006400',
             'arroz': '#FFD700',
@@ -96,59 +97,57 @@
         var geojsonData, fincas = new Map();
         var chart;
 
-        // Cargar GeoJSON
- function cargarGeoJSON(url, estilo, nombreCapa, etiquetar = false) {
-    fetch(url)
-        .then(response => {
-            if (!response.ok) throw new Error(`Error al cargar ${nombreCapa}`);
-            return response.json();
-        })
-        .then(data => {
-            geojsonData = data; // Guardamos los datos para referencia
-            const fincasUnicas = new Map(); // Map para almacenar fincas únicas
+        // Función para cargar capas GeoJSON
+        function cargarGeoJSON(url, estilo, nombreCapa, etiquetar = false) {
+            fetch(url)
+                .then(response => {
+                    if (!response.ok) throw new Error(`Error al cargar ${nombreCapa}`);
+                    return response.json();
+                })
+                .then(data => {
+                    geojsonData = data; // Guardamos los datos para referencia
+                    var layer = L.geoJSON(data, {
+                        style: estilo,
+                        onEachFeature: function (feature, layer) {
+                            const codFinca = feature.properties.cod_finca || "N/A";
+                            let nombreFinca = feature.properties.nom_finca_ || "Sin nombre";
 
-            var layer = L.geoJSON(data, {
-                style: estilo,
-                onEachFeature: function (feature, layer) {
-                    const codFinca = feature.properties.cod_finca || "N/A";
-                    let nombreFinca = feature.properties.nom_finca_; // Tomamos directamente nom_finca_
+                            if (!nombreFinca || nombreFinca.trim() === "") {
+                                nombreFinca = "Sin nombre";
+                            }
 
-                    // Si el nombre de la finca está vacío o es null, usar un valor alternativo
-                    if (!nombreFinca || nombreFinca.trim() === "") {
-                        nombreFinca = "Sin nombre";
-                    }
+                            const fincaLabel = `${codFinca} - ${nombreFinca}`;
 
-                    const fincaLabel = `${codFinca} - ${nombreFinca}`;
+                            // Asegurar que cada finca aparezca solo una vez en el selector
+                            if (etiquetar && !fincas.has(codFinca)) {
+                                fincas.set(codFinca, fincaLabel);
 
-                    // Asegurarse de que cada finca aparezca solo una vez en el listado desplegable
-                    if (etiquetar && !fincasUnicas.has(codFinca)) {
-                        fincasUnicas.set(codFinca, fincaLabel);
+                                // Agregar al selector
+                                const option = document.createElement('option');
+                                option.value = codFinca; // Usamos el código como valor
+                                option.textContent = fincaLabel; // Mostrar "cod_finca - nom_finca_"
+                                fincaSelector.appendChild(option);
+                            }
 
-                        // Agregar la finca al selector
-                        const option = document.createElement('option');
-                        option.value = codFinca; // El valor será el código de la finca
-                        option.textContent = fincaLabel; // Mostrar "cod_finca - nom_finca_"
-                        fincaSelector.appendChild(option);
-                    }
+                            // Etiquetas emergentes
+                            if (feature.properties.cultivo) {
+                                const cultivo = feature.properties.cultivo;
+                                const area = parseFloat(feature.properties.has).toLocaleString('es-ES', {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2
+                                });
+                                layer.bindPopup(`Cultivo: ${cultivo}<br>Área: ${area} ha`);
+                            }
+                        }
+                    });
+                    layer.addTo(map);
+                    layerControl.addOverlay(layer, nombreCapa);
+                    bounds.extend(layer.getBounds());
+                })
+                .catch(error => console.error(`Error cargando ${nombreCapa}:`, error));
+        }
 
-                    // Etiquetas emergentes para los usos del suelo
-                    if (feature.properties.cultivo) {
-                        const cultivo = feature.properties.cultivo;
-                        const area = parseFloat(feature.properties.has).toLocaleString('es-ES', {
-                            minimumFractionDigits: 2,
-                            maximumFractionDigits: 2
-                        });
-                        layer.bindPopup(`Cultivo: ${cultivo}<br>Área: ${area} ha`);
-                    }
-                }
-            });
-            layer.addTo(map);
-            layerControl.addOverlay(layer, nombreCapa);
-            bounds.extend(layer.getBounds());
-        })
-        .catch(error => console.error(`Error cargando ${nombreCapa}:`, error));
-}      
-        // Centrar en finca seleccionada
+        // Función para centrar en la finca seleccionada
         function centrarEnFinca() {
             const selectedFinca = fincaSelector.value;
             if (!selectedFinca || !geojsonData) return;
@@ -189,7 +188,7 @@
             map.fitBounds(bounds);
         }
 
-        // Generar gráfico
+        // Generar gráfico de torta
         function generarGrafico(cultivos) {
             if (chart) chart.destroy();
             const labels = Object.keys(cultivos).sort();
