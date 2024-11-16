@@ -28,6 +28,17 @@
             margin-top: 10px;
             line-height: 1.5;
         }
+        .summary {
+            margin-top: 20px;
+            background: white;
+            padding: 10px;
+            font-size: 14px;
+        }
+        .chart-container {
+            width: 100%;
+            height: 300px;
+            margin-top: 20px;
+        }
     </style>
 </head>
 <body>
@@ -39,10 +50,15 @@
                 <option value="">Seleccione una finca</option>
             </select>
         </div>
+        <div id="summary" class="summary"></div>
+        <div class="chart-container">
+            <canvas id="chart"></canvas>
+        </div>
     </div>
     <div id="map"></div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         // Inicializar el mapa
         var map = L.map('map').setView([5.40139, -71.05203], 10);
@@ -55,7 +71,6 @@
         var bounds = L.latLngBounds();
         var layerControl = L.control.layers(null, null, { collapsed: false }).addTo(map);
 
-        // Colores para cultivos
         const colorMap = {
             'bosque de galería': '#006400', // Verde oscuro
             'arroz': '#FFD700',
@@ -76,35 +91,31 @@
         };
 
         var fincaSelector = document.getElementById('fincaSelector');
-        var fincasAgregadas = new Set(); // Para evitar duplicados en el selector
+        var summaryDiv = document.getElementById('summary');
+        var chartCanvas = document.getElementById('chart');
+        var fincasAgregadas = new Set();
+        var geojsonData;
+        var chart;
 
         function cargarGeoJSON(url, estilo, nombreCapa, etiquetar = false) {
             fetch(url)
                 .then(response => response.json())
                 .then(data => {
-                    console.log(`Capa ${nombreCapa} cargada`, data);
+                    geojsonData = data;
                     var layer = L.geoJSON(data, {
                         style: estilo,
                         onEachFeature: function(feature, layer) {
                             if (feature.properties) {
-                                // Etiquetas personalizadas para `usos2`
-                                if (nombreCapa === "Usos 2") {
-                                    const cultivo = feature.properties.cultivo || "Sin información";
-                                    const area = feature.properties.has ? parseFloat(feature.properties.has).toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "N/A";
-                                    layer.bindPopup(`<strong>Cultivo:</strong> ${cultivo}<br><strong>Área:</strong> ${area} ha`);
+                                const codFinca = feature.properties.cod_finca || "N/A";
+                                const nombreFinca = feature.properties.nom_finca_ || "Sin nombre";
+                                const fincaLabel = `${codFinca} - ${nombreFinca}`;
 
-                                    // Agregar códigos y nombres de finca al selector (sin duplicados)
-                                    const codFinca = feature.properties.cod_finca || "N/A";
-                                    const nombreFinca = feature.properties.nom_finca_ || "Sin nombre";
-                                    const fincaLabel = `${codFinca} - ${nombreFinca}`;
-
-                                    if (!fincasAgregadas.has(fincaLabel)) {
-                                        fincasAgregadas.add(fincaLabel);
-                                        const option = document.createElement('option');
-                                        option.value = JSON.stringify(layer.getBounds());
-                                        option.textContent = fincaLabel;
-                                        fincaSelector.appendChild(option);
-                                    }
+                                if (etiquetar && !fincasAgregadas.has(fincaLabel)) {
+                                    fincasAgregadas.add(fincaLabel);
+                                    const option = document.createElement('option');
+                                    option.value = codFinca; // Usamos `cod_finca` para filtrar
+                                    option.textContent = fincaLabel;
+                                    fincaSelector.appendChild(option);
                                 }
                             }
                         }
@@ -118,11 +129,79 @@
         }
 
         function centrarEnFinca() {
-            var selectedValue = fincaSelector.value;
-            if (selectedValue) {
-                var bounds = JSON.parse(selectedValue);
-                map.fitBounds(bounds);
+            const selectedFinca = fincaSelector.value;
+            if (!selectedFinca || !geojsonData) return;
+
+            let areaTotal = 0;
+            let propietario = "N/A";
+            const cultivos = {};
+
+            const bounds = L.latLngBounds();
+
+            geojsonData.features.forEach(feature => {
+                if (feature.properties.cod_finca === selectedFinca) {
+                    const cultivo = feature.properties.cultivo || "Sin información";
+                    const area = parseFloat(feature.properties.has) || 0;
+
+                    // Sumar el área total
+                    areaTotal += area;
+
+                    // Obtener el propietario
+                    propietario = feature.properties.propietari || propietario;
+
+                    // Sumar áreas por cultivo
+                    if (!cultivos[cultivo]) {
+                        cultivos[cultivo] = 0;
+                    }
+                    cultivos[cultivo] += area;
+
+                    // Extender los bounds para centrar el mapa
+                    if (feature.geometry) {
+                        bounds.extend(L.geoJSON(feature).getBounds());
+                    }
+                }
+            });
+
+            // Mostrar resumen
+            const nombreFinca = fincaSelector.options[fincaSelector.selectedIndex].text.split(" - ")[1];
+            summaryDiv.innerHTML = `
+                <strong>Nombre de la Finca:</strong> ${nombreFinca}<br>
+                <strong>Propietario:</strong> ${propietario}<br>
+                <strong>Área Total:</strong> ${areaTotal.toLocaleString('es-ES', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ha
+            `;
+
+            // Generar gráfico
+            generarGrafico(cultivos);
+
+            // Centrar el mapa en la finca seleccionada
+            map.fitBounds(bounds);
+        }
+
+        function generarGrafico(cultivos) {
+            if (chart) {
+                chart.destroy(); // Eliminar gráfico previo si existe
             }
+
+            const labels = Object.keys(cultivos);
+            const data = Object.values(cultivos);
+            const backgroundColors = labels.map(cultivo => colorMap[cultivo] || '#D3D3D3');
+
+            chart = new Chart(chartCanvas, {
+                type: 'pie',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: backgroundColors
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: { position: 'top' }
+                    }
+                }
+            });
         }
 
         // Enlaces "raw" de GitHub
@@ -133,7 +212,7 @@
         // Estilo para `usos2` con colores según el cultivo
         function estiloUsos(feature) {
             const cultivo = feature.properties.cultivo ? feature.properties.cultivo.trim().toLowerCase() : "";
-            const color = colorMap[cultivo] || '#D3D3D3'; // Gris claro por defecto
+            const color = colorMap[cultivo] || '#D3D3D3';
             return { color: color, fillOpacity: 0.7, weight: 1 };
         }
 
