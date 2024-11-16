@@ -97,7 +97,7 @@
         var chart;
 
         // Cargar GeoJSON
-     function cargarGeoJSON(url, estilo, nombreCapa, etiquetar = false) {
+    function cargarGeoJSON(url, estilo, nombreCapa, etiquetar = false) {
     fetch(url)
         .then(response => {
             if (!response.ok) throw new Error(`Error al cargar ${nombreCapa}`);
@@ -105,6 +105,8 @@
         })
         .then(data => {
             geojsonData = data; // Guardamos los datos para referencia
+            const fincasUnicas = new Map(); // Map para almacenar fincas únicas
+
             var layer = L.geoJSON(data, {
                 style: estilo,
                 onEachFeature: function (feature, layer) {
@@ -112,11 +114,14 @@
                     const nombreFinca = feature.properties.nom_finca_ || "Sin nombre";
                     const fincaLabel = `${codFinca} - ${nombreFinca}`;
 
-                    // Asegurarse de que cada finca aparezca solo una vez en el listado desplegable
-                    if (etiquetar && !Array.from(fincaSelector.options).some(option => option.textContent === fincaLabel)) {
+                    // Si estamos etiquetando, registrar fincas únicas en el listado desplegable
+                    if (etiquetar && !fincasUnicas.has(codFinca)) {
+                        fincasUnicas.set(codFinca, fincaLabel);
+
+                        // Agregar la finca al selector
                         const option = document.createElement('option');
-                        option.value = codFinca; // Valor será el código de la finca
-                        option.textContent = fincaLabel; // Texto será "cod_finca - nom_finca_"
+                        option.value = codFinca; // El valor será el código de la finca
+                        option.textContent = fincaLabel; // Mostrar "cod_finca - nom_finca_"
                         fincaSelector.appendChild(option);
                     }
 
@@ -137,7 +142,6 @@
         })
         .catch(error => console.error(`Error cargando ${nombreCapa}:`, error));
 }
-
         // Centrar en finca seleccionada
         function centrarEnFinca() {
             const selectedFinca = fincaSelector.value;
