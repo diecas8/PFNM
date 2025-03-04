@@ -2,126 +2,187 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>Geoportal</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Geoportal Tumaco</title>
     <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-draw/dist/leaflet.draw.css" />
     <style>
         body {
             margin: 0;
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
+            padding: 0;
+            font-family: Arial, sans-serif;
         }
+
         #map {
-            width: 75%;
-            height: 100%;
-        }
-        .sidebar {
-            width: 25%;
-            background-color: #f8f9fa;
-            padding: 10px;
-            box-sizing: border-box;
-            overflow-y: auto;
-        }
-        .filter {
-            margin-bottom: 20px;
-        }
-        .filter select {
             width: 100%;
-            padding: 8px;
-            border: 1px solid #ccc;
-            border-radius: 4px;
+            height: 100vh;
         }
-        .summary {
-            background-color: #ffffff;
+
+        #info-panel {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: white;
             padding: 10px;
-            margin-bottom: 20px;
             border-radius: 5px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+
+        #element-info {
+            margin-bottom: 10px;
+        }
+
+        button {
+            padding: 5px 10px;
+            background: #0078A8;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #005f87;
+        }
+
+        input[type="file"] {
+            margin-top: 10px;
         }
     </style>
 </head>
 <body>
     <div id="map"></div>
-    <div class="sidebar">
-        <div class="filter">
-            <select id="fincaSelector" onchange="centrarEnFinca()">
-                <option value="">Seleccione una finca</option>
-            </select>
-        </div>
-        <div id="summary" class="summary">
-            Seleccione una finca para ver los detalles.
-        </div>
+    <div id="info-panel">
+        <h2>Información del Elemento</h2>
+        <div id="element-info"></div>
+        <button id="export-geojson">Exportar GeoJSON</button>
+        <input type="file" id="load-geojson" accept=".geojson">
     </div>
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-draw/dist/leaflet.draw.js"></script>
+    <script src="https://unpkg.com/leaflet.gridlayer.googlemutant@latest/dist/Leaflet.GoogleMutant.js"></script>
     <script>
-        const map = L.map('map').setView([5.40139, -71.05203], 10);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 18,
+        // Inicializar el mapa
+        var map = L.map('map').setView([1.806, -78.764], 13);
+
+        // Añadir capa de tiles (OpenStreetMap)
+        var osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
+        });
 
-        const fincaSelector = document.getElementById('fincaSelector');
-        const summaryDiv = document.getElementById('summary');
-        let geojsonData;
+        // Añadir capa de Google Maps
+        var googleLayer = L.gridLayer.googleMutant({
+            type: 'roadmap' // Puedes cambiar a 'satellite', 'hybrid', etc.
+        });
 
-        // Estilo predeterminado para las capas
-        const defaultStyle = {
-            color: '#0000FF',
-            weight: 1,
-            fillOpacity: 0.5
+        // Añadir capa de ESRI
+        var esriLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: '© Esri'
+        });
+
+        // Añadir control de capas base
+        var baseLayers = {
+            "OpenStreetMap": osmLayer,
+            "Google Maps": googleLayer,
+            "ESRI World Imagery": esriLayer
         };
 
-        function cargarGeoJSON(url, estilo = defaultStyle, nombreCapa) {
-            fetch(url)
-                .then(response => response.json())
-                .then(data => {
-                    geojsonData = data;
+        osmLayer.addTo(map);
 
-                    const layer = L.geoJSON(data, {
-                        style: typeof estilo === 'function' ? estilo : () => estilo,
-                        onEachFeature: (feature, layer) => {
-                            const codFinca = feature.properties.cod_finca || "N/A";
-                            const nomFinca = feature.properties.nom_finca_ || "Sin nombre";
+        L.control.layers(baseLayers).addTo(map);
 
-                            if (!fincaSelector.querySelector(`option[value="${codFinca}"]`)) {
-                                const option = document.createElement('option');
-                                option.value = codFinca;
-                                option.textContent = `${codFinca} - ${nomFinca}`;
-                                fincaSelector.appendChild(option);
-                            }
+        // Inicializar el control de dibujo
+        var drawnItems = new L.FeatureGroup();
+        map.addLayer(drawnItems);
 
-                            const popupContent = `
-                                <strong>Código:</strong> ${codFinca}<br>
-                                <strong>Nombre:</strong> ${nomFinca}
-                            `;
-                            layer.bindPopup(popupContent);
-                        }
-                    }).addTo(map);
+        var drawControl = new L.Control.Draw({
+            edit: {
+                featureGroup: drawnItems
+            },
+            draw: {
+                polygon: true,
+                polyline: true,
+                rectangle: false,
+                circle: false,
+                marker: true
+            }
+        });
+        map.addControl(drawControl);
 
-                    L.control.layers(null, { [nombreCapa]: layer }).addTo(map);
-                })
-                .catch(err => console.error('Error al cargar GeoJSON:', err));
+        // Eventos para manejar la creación de elementos
+        map.on(L.Draw.Event.CREATED, function (event) {
+            var layer = event.layer;
+            drawnItems.addLayer(layer);
+
+            if (layer instanceof L.Marker) {
+                var popupContent = `
+                    <label>Nombre del sitio: <input type="text" id="site-name"></label><br>
+                    <label>Observaciones: <textarea id="site-notes"></textarea></label>
+                `;
+                layer.bindPopup(popupContent).openPopup();
+            } else if (layer instanceof L.Polyline) {
+                var length = (L.GeometryUtil.length(layer) / 1000).toFixed(2); // Longitud en km
+                var popupContent = `
+                    <label>Tipo de línea: <input type="text" id="line-type"></label><br>
+                    <label>Longitud: ${length} km</label>
+                `;
+                layer.bindPopup(popupContent).openPopup();
+            } else if (layer instanceof L.Polygon) {
+                var area = (L.GeometryUtil.geodesicArea(layer.getLatLngs()[0]) / 10000).toFixed(2); // Área en hectáreas
+                var popupContent = `
+                    <label>Propietario: <input type="text" id="polygon-owner"></label><br>
+                    <label>Tipo de área: <input type="text" id="polygon-type"></label><br>
+                    <label>Área: ${area} ha</label>
+                `;
+                layer.bindPopup(popupContent).openPopup();
+            }
+        });
+
+        // Exportar a GeoJSON
+        document.getElementById('export-geojson').addEventListener('click', function () {
+            var geojson = drawnItems.toGeoJSON();
+            var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(geojson, null, 2));
+            var downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            downloadAnchorNode.setAttribute("download", "map_data.geojson");
+            document.body.appendChild(downloadAnchorNode); // required for firefox
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        });
+
+        // Cargar GeoJSON
+        function loadGeoJSON(file) {
+            var reader = new FileReader();
+            reader.onload = function (e) {
+                var geojson = JSON.parse(e.target.result);
+                L.geoJSON(geojson).addTo(drawnItems);
+            };
+            reader.readAsText(file);
         }
 
-        function centrarEnFinca() {
-            const selectedFinca = fincaSelector.value;
-            if (!selectedFinca || !geojsonData) return;
+        document.getElementById('load-geojson').addEventListener('change', function (e) {
+            loadGeoJSON(e.target.files[0]);
+        });
 
-            const bounds = L.latLngBounds();
-            geojsonData.features.forEach(feature => {
-                if (feature.properties.cod_finca === selectedFinca) {
-                    if (feature.geometry) {
-                        bounds.extend(L.geoJSON(feature).getBounds());
-                    }
-                }
-            });
+        // Mostrar ubicación actual
+        map.locate({setView: true, maxZoom: 16});
 
-            map.fitBounds(bounds);
+        function onLocationFound(e) {
+            var radius = e.accuracy / 2;
+            L.marker(e.latlng).addTo(map)
+                .bindPopup("Estás dentro de " + radius + " metros de este punto").openPopup();
+            L.circle(e.latlng, radius).addTo(map);
         }
 
-        // Cargar las capas
-        cargarGeoJSON('./Cultivos.geojson', defaultStyle, 'Cultivos');
+        map.on('locationfound', onLocationFound);
+
+        function onLocationError(e) {
+            alert(e.message);
+        }
+
+        map.on('locationerror', onLocationError);
     </script>
 </body>
 </html>
